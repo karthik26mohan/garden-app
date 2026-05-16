@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnp/
+.pnp.*
+
+# next
+.next/
+out/
+build/
+
+# production
+*.tsbuildinfo
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (do NOT commit)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# editors
+.vscode/
+.idea/
+
+# vercel
+.vercel/
+
+# supabase
+supabase/.temp/
+supabase/.branches/
