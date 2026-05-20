@@ -4,11 +4,12 @@ import { NextResponse, type NextRequest } from "next/server";
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 /**
- * Refreshes the Supabase auth session on every request that runs through
- * Next.js middleware. Without this, server components would see stale auth
- * state after a token refresh.
+ * Refreshes the Supabase auth session on every incoming request and enforces
+ * auth on /app/* routes. Called from src/middleware.ts (the Next.js entry point).
  *
- * Also enforces auth on /app/* — unauthenticated users get redirected to /login.
+ * Without this:
+ *   - Server components would see stale auth state after a token refresh.
+ *   - Unauthenticated users could load /app/* pages and only fail on data calls.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
