@@ -1,0 +1,82 @@
+.login {
+  max-width: 28rem;
+  margin: 4rem auto;
+  padding: 0 1rem;
+
+  &__header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+    }
+
+    p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+  }
+
+  &__message {
+    background: #fef3c7;
+    color: #78350f;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  &__field {
+    display: block;
+    margin-bottom: 1rem;
+
+    span {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: white;
+
+      &:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.2);
+      }
+    }
+  }
+
+  &__submit {
+    width: 100%;
+  }
+
+  &__sent {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0.5rem 0 0;
+  }
+
+  &__error {
+    color: var(--danger);
+    font-size: 0.875rem;
+    margin: 0.75rem 0 0;
+  }
+}

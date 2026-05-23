@@ -81,7 +81,7 @@
 
 ## 3. Next.js App Router (server components) over Angular
 **Date:** 2026-05-16
-**Status:** Accepted
+**Status:** Reversed — see Entry #8 (decided 2026-05-20 to switch back to Angular)
 
 **Context.** I have 10 years of Angular and need a modern fullstack framework for this project. Resume goal: fill the gap of "no modern React/Next.js exposure."
 
@@ -181,6 +181,92 @@
 *Hints:*
 - *More moving parts — secrets, permissions, workflow debugging.*
 - *Marginally slower deploys (~30s overhead vs. Vercel's direct integration).*
+
+---
+
+## 7. SCSS with component-scoped styles over Tailwind CSS
+**Date:** 2026-05-20
+**Status:** Accepted
+
+**Context.** Picking a styling approach for the Angular project. The team needed a system that's productive, maintainable, and matches the engineer's existing CSS muscle memory.
+
+**Options considered.**
+- **Tailwind CSS (utility-first)** — thousands of pre-made utility classes composed directly in templates. Modern, fast to prototype, but every element ends up with long class strings.
+- **SCSS with component-scoped styles** — Angular's idiomatic pattern. Each component owns its own `.scss` file; selectors stay local thanks to Angular's view encapsulation. SCSS adds nesting, variables, and mixins on top of plain CSS.
+- **Plain CSS** — same as SCSS minus nesting and variables. Verbose for non-trivial UIs.
+- **CSS-in-JS / styled-components** — popular in React; not idiomatic in Angular and adds a runtime cost.
+
+**Decision.** SCSS with component-scoped styles (Angular's default), plus a small set of design tokens (colors, spacing) defined as CSS custom properties in `src/styles.scss`.
+
+**Why (in my own words).**
+*Hints:*
+- *A decade of Angular projects has trained the muscle memory for "write component template, write component styles in a sibling file." Tailwind's utility-class-in-template pattern fights that habit.*
+- *Component-scoped SCSS gives encapsulation for free — styles can't leak from one component into another. That's a property Tailwind doesn't have because it leans on global utility classes.*
+- *Tried Tailwind for ~10 minutes and the long class strings felt alien. SCSS is the path that gets me building features instead of staring at class names.*
+
+**Tradeoffs / what we're giving up.**
+*Hints:*
+- *Slightly more files on disk (one `.scss` per component) and the cognitive load of choosing class names.*
+- *Tailwind has stronger "no design talent required" defaults — picking custom CSS values means I have to make more aesthetic decisions myself.*
+
+---
+
+## 8. Reversed: switched back from Next.js to Angular 21 with SSR
+**Date:** 2026-05-20
+**Status:** Accepted (supersedes Entry #3)
+
+**Context.** Four days into the Next.js build (auth flow, schema, RLS, garden CRUD all working), it became clear the React paradigm itself — server vs client components, hooks, the cookie/middleware dance, `"use client"` / `"use server"` directives — was costing more cognitive energy than the resume gap fill justified. Infrastructure friction was real but framework-agnostic; the framework friction was the actual drain. Continuing meant the most React-heavy work (camera capture, multi-step plant identification UI) was still ahead.
+
+**Options considered.**
+- **Push through with Next.js** — finish the original plan, eat the cognitive cost, ship the Next.js bullet on the resume.
+- **Switch to Angular 21 + SSR** — rewrite UI layer only, keep Supabase schema/RLS/migrations/Pl@ntNet plan, lose the Next.js resume gap fill but gain a sustainable build pace and current-Angular skills (zoneless change detection, signals, SSR).
+- **Switch to Remix or another React framework** — different React flavor; still React.
+- **Abandon the project** — non-starter; the data and integration work was substantive.
+
+**Decision.** Switch to Angular 21 with SSR. Keep Supabase project, all 7 migrations, RLS policies, the Pl@ntNet research, the GitHub Actions workflows (with build-command adjustments), and DECISIONS.md. Wipe the Next.js scaffold and rebuild the UI in Angular.
+
+**Why (in my own words).**
+*Hints:*
+- *The framework was supposed to be a means to an end — building the actual product (plant tracking, ML integration, multi-tenant data). When the framework starts eating the energy that should go to the product, the framework is the wrong tool, regardless of resume value.*
+- *Reversing a stated decision when new information arrives is senior-engineer behavior, not flip-flopping. Day 4 me had information Day 1 me didn't — that the React paradigm specifically was the source of friction, not the infrastructure around it.*
+- *Angular 21 with zoneless change detection + signals + SSR is itself a "current Angular" skill that's not stale — the modern Angular my resume implies isn't quite what AngularJS-era Angular was. So the resume isn't actually as Angular-saturated as Entry #3 assumed.*
+
+**Tradeoffs / what we're giving up.**
+*Hints:*
+- *The original Next.js resume gap fill is gone. Anyone scanning the resume now sees "Angular" three times instead of two, with "Next.js" once removed.*
+- *Roughly 4–5 days of work (Days 1–4 in Next.js) was wiped. The data/integration design carries over but the UI code does not.*
+- *Slight signaling cost: a hiring manager who pokes deep into the git history could see "candidate started in Next.js, switched mid-project." That story plays as either "sunk-cost-aware engineer" or "couldn't hack it" depending on how it's told. Owning the reversal in DECISIONS.md and on the resume is how you control the framing.*
+
+---
+
+## 9. Custom SMTP via Resend for magic-link emails
+**Date:** 2026-05-22
+**Status:** Accepted
+
+**Context.** Magic-link sign-in depends on Supabase actually delivering the email. Supabase's built-in email sender is meant for prototyping only — it's aggressively rate-limited (around 2 emails per hour per recipient, ~30/hour project-wide) and the limit applies to *every* code path that sends, including the "Send magic link" button in the dashboard. Hit the limit once during testing and the entire auth flow is unblockable for an hour, with no override.
+
+**Options considered.**
+- **Stay on Supabase's built-in sender** — zero setup, but testing becomes impossible after a couple of clicks.
+- **Resend** — modern transactional-email SaaS, generous free tier (3,000/month, 100/day), straightforward SMTP credentials, a sandbox sender (`onboarding@resend.dev`) that works without domain verification for dev.
+- **SendGrid** — incumbent. More features, much heavier setup, dashboard feels enterprise-clunky.
+- **Postmark** — also good, but free tier is more restrictive (100 emails total, then paid).
+- **Amazon SES** — cheapest at scale, but requires AWS account, sandbox-mode approval, DKIM/SPF setup before the first email lands.
+- **Self-host (Postfix on a VPS)** — possible but deliverability is brutal; new IPs land in spam by default.
+
+**Decision.** Resend, configured as Supabase's custom SMTP provider. Sender `onboarding@resend.dev` (sandbox) for development; domain verification deferred until a real custom domain is wired up.
+
+**Why (in my own words).**
+*Hints to weave into your answer:*
+- *The built-in Supabase sender is unusable for any real testing — hit the rate limit once and you're locked out for an hour with no admin override.*
+- *Resend's developer experience is dramatically better than SendGrid's — credentials in under five minutes, no enterprise onboarding flow.*
+- *The `onboarding@resend.dev` sandbox sender means I can ship a working dev environment without owning a domain. Production gets a verified domain later, but that's a 20-minute job, not a blocker now.*
+- *This isn't really an optional decision — every Supabase project that ships ends up here. The "built-in" sender is more like training wheels than a real option.*
+
+**Tradeoffs / what we're giving up.**
+*Hints:*
+- *Sandbox sender can only deliver to the email I signed up to Resend with — any other test recipient gets rejected. Fine for solo dev, breaks the moment a second person tries to sign in.*
+- *Added an external dependency (and one more service credential to manage) for a project that was otherwise self-contained inside Supabase + Vercel.*
+- *Production cutover requires DNS records (SPF + DKIM) on a custom domain before any non-sandbox sender works — a small future-me task that's easy to forget about until launch day.*
 
 ---
 

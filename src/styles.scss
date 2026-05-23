@@ -1,0 +1,60 @@
+// Global styles. Component-specific styles live next to each component
+// in its own .scss file.
+
+:root {
+  --bg: #fafaf9;
+  --text: #1c1917;
+  --text-muted: #57534e;
+  --border: #d6d3d1;
+  --accent: #15803d;       // emerald-700
+  --accent-hover: #166534; // emerald-800
+  --danger: #be123c;       // rose-700
+  --radius: 6px;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+}
+
+// Shared utility-ish classes — feel free to grow or delete these.
+
+.container {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+
+  &--primary {
+    background: var(--accent);
+    color: white;
+    &:hover { background: var(--accent-hover); }
+  }
+
+  &--secondary {
+    background: white;
+    color: var(--text);
+    border-color: var(--border);
+    &:hover { background: #f5f5f4; }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

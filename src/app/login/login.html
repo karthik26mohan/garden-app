@@ -1,0 +1,48 @@
+<main class="login">
+  <div class="login__header">
+    <h1>🌱 Garden</h1>
+    <p>Sign in with a magic link — no password to remember.</p>
+  </div>
+
+  @if (message) {
+    <p class="login__message">{{ message }}</p>
+  }
+
+  @if (status() === 'sent') {
+    <div class="login__sent">
+      <p>
+        Check <strong>{{ email() }}</strong> for a sign-in link.
+      </p>
+      <p class="login__hint">
+        It should arrive in under a minute. Don't see it? Check spam.
+      </p>
+    </div>
+  } @else {
+    <form (submit)="sendMagicLink($event)">
+      <label class="login__field">
+        <span>Email</span>
+        <input
+          type="email"
+          required
+          autocomplete="email"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+          name="email"
+          placeholder="you@example.com"
+        />
+      </label>
+
+      <button
+        type="submit"
+        class="btn btn--primary login__submit"
+        [disabled]="status() === 'sending' || !email()"
+      >
+        {{ status() === 'sending' ? 'Sending…' : 'Send magic link' }}
+      </button>
+
+      @if (errorMessage()) {
+        <p class="login__error">{{ errorMessage() }}</p>
+      }
+    </form>
+  }
+</main>
