@@ -1,0 +1,89 @@
+.gardens {
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin: 0 0 0.25rem;
+    }
+  }
+
+  &__signed-in {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  &__status {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+
+    &--error {
+      color: var(--danger);
+    }
+  }
+
+  &__empty {
+    background: white;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+
+    p {
+      margin: 0;
+    }
+  }
+
+  &__empty-hint {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem !important;
+  }
+
+  &__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1rem;
+  }
+
+  &__item {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+  }
+
+  &__name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+  }
+
+  &__description {
+    font-size: 0.875rem;
+    color: var(--text);
+    margin: 0 0 0.75rem;
+  }
+
+  &__meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+}

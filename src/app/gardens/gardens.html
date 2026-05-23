@@ -1,0 +1,48 @@
+<main class="gardens container">
+  <header class="gardens__header">
+    <div>
+      <h1>Your gardens</h1>
+      @if (email()) {
+        <p class="gardens__signed-in">
+          Signed in as <strong>{{ email() }}</strong>
+        </p>
+      }
+    </div>
+
+    <div class="gardens__actions">
+      <a routerLink="/app/gardens/new" class="btn btn--primary">
+        + New garden
+      </a>
+      <button type="button" class="btn btn--secondary" (click)="signOut()">
+        Sign out
+      </button>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <p class="gardens__status">Loading…</p>
+  } @else if (errorMessage()) {
+    <p class="gardens__status gardens__status--error">{{ errorMessage() }}</p>
+  } @else if (gardens().length === 0) {
+    <div class="gardens__empty">
+      <p>No gardens yet.</p>
+      <p class="gardens__empty-hint">
+        Create your first one to start tracking plants.
+      </p>
+    </div>
+  } @else {
+    <ul class="gardens__list">
+      @for (garden of gardens(); track garden.id) {
+        <li class="gardens__item">
+          <h2 class="gardens__name">{{ garden.name }}</h2>
+          @if (garden.description) {
+            <p class="gardens__description">{{ garden.description }}</p>
+          }
+          <p class="gardens__meta">
+            Created {{ garden.created_at | date: 'mediumDate' }}
+          </p>
+        </li>
+      }
+    </ul>
+  }
+</main>

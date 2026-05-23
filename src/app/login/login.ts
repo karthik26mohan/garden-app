@@ -30,8 +30,7 @@ export class Login {
     return this.route.snapshot.queryParamMap.get('message');
   }
 
-  async sendMagicLink(event: Event): Promise<void> {
-    event.preventDefault();
+  async sendMagicLink(): Promise<void> {
     this.status.set('sending');
     this.errorMessage.set(null);
 

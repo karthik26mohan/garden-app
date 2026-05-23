@@ -1,0 +1,53 @@
+<main class="new-garden container">
+  <nav class="new-garden__breadcrumb">
+    <a routerLink="/app/gardens">← Back to gardens</a>
+  </nav>
+
+  <h1>New garden</h1>
+  <p class="new-garden__hint">
+    Give it a name now. You can sketch boundaries and add plants later.
+  </p>
+
+  <form (ngSubmit)="submit()" class="new-garden__form">
+    <label class="new-garden__field">
+      <span>Name</span>
+      <input
+        type="text"
+        required
+        autofocus
+        maxlength="80"
+        [ngModel]="name()"
+        (ngModelChange)="name.set($event)"
+        name="name"
+        placeholder="Backyard, balcony herbs, raised bed #2…"
+      />
+    </label>
+
+    <label class="new-garden__field">
+      <span>Description <em>(optional)</em></span>
+      <textarea
+        rows="3"
+        maxlength="500"
+        [ngModel]="description()"
+        (ngModelChange)="description.set($event)"
+        name="description"
+        placeholder="What's in it, why it exists, anything you want to remember."
+      ></textarea>
+    </label>
+
+    @if (errorMessage()) {
+      <p class="new-garden__error">{{ errorMessage() }}</p>
+    }
+
+    <div class="new-garden__actions">
+      <a routerLink="/app/gardens" class="btn btn--secondary">Cancel</a>
+      <button
+        type="submit"
+        class="btn btn--primary"
+        [disabled]="status() === 'saving' || !name().trim()"
+      >
+        {{ status() === 'saving' ? 'Creating…' : 'Create garden' }}
+      </button>
+    </div>
+  </form>
+</main>

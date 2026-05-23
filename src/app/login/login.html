@@ -18,7 +18,7 @@
       </p>
     </div>
   } @else {
-    <form (submit)="sendMagicLink($event)">
+    <form (ngSubmit)="sendMagicLink()">
       <label class="login__field">
         <span>Email</span>
         <input
