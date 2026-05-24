@@ -60,6 +60,34 @@ export class GardenService {
   }
 
   /**
+   * Fetch a single garden by id. Returns null if not found.
+   *
+   * "Not found" includes two cases that look identical from the caller's
+   * perspective — and that's the point:
+   *   1. The id genuinely doesn't exist.
+   *   2. The id exists but belongs to a different user.
+   *
+   * Case 2 gets filtered by the gardens_select_own RLS policy before the
+   * row ever leaves Postgres, so the query just returns zero rows. `.single()`
+   * then errors with "no rows returned" (PGRST116). We catch that and return
+   * null so the component can render a clean "Garden not found." state.
+   * Any other error (network, real DB error) re-throws.
+   */
+  async get(id: string): Promise<Garden | null> {
+    const { data, error } = await this.supabase.client
+      .from('gardens')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null; // 0 rows
+      throw error;
+    }
+    return data as Garden;
+  }
+
+  /**
    * Insert a new garden owned by the current user. Throws if no user is
    * signed in (caller should already be behind authGuard, but we belt-and-
    * suspenders it here so a bug elsewhere can't write rows with a null

@@ -27,4 +27,14 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./gardens/new-garden/new-garden').then((m) => m.NewGarden),
   },
+  {
+    // :id is a route parameter — anything in that URL segment is captured
+    // as a string and exposed via ActivatedRoute.snapshot.paramMap.
+    path: 'app/gardens/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./gardens/garden-detail/garden-detail').then(
+        (m) => m.GardenDetail,
+      ),
+  },
 ];

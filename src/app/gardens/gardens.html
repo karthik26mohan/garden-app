@@ -33,14 +33,19 @@
   } @else {
     <ul class="gardens__list">
       @for (garden of gardens(); track garden.id) {
-        <li class="gardens__item">
-          <h2 class="gardens__name">{{ garden.name }}</h2>
-          @if (garden.description) {
-            <p class="gardens__description">{{ garden.description }}</p>
-          }
-          <p class="gardens__meta">
-            Created {{ garden.created_at | date: 'mediumDate' }}
-          </p>
+        <li>
+          <a
+            [routerLink]="['/app/gardens', garden.id]"
+            class="gardens__item"
+          >
+            <h2 class="gardens__name">{{ garden.name }}</h2>
+            @if (garden.description) {
+              <p class="gardens__description">{{ garden.description }}</p>
+            }
+            <p class="gardens__meta">
+              Created {{ garden.created_at | date: 'mediumDate' }}
+            </p>
+          </a>
         </li>
       }
     </ul>
