@@ -1,8 +1,12 @@
 name: Production Deploy
 
+# DISABLED — this workflow was written for Next.js on Vercel. After the
+# Angular 21 SSR pivot, build commands, output paths, env-var conventions
+# and the /api/health smoke target all need rework. Trigger is pinned to
+# workflow_dispatch (manual only) until we redo the deploy target. See
+# DECISIONS.md Entry #8 for context; future entry will cover the rewrite.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: production

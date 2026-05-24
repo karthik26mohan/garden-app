@@ -1,8 +1,12 @@
 name: Preview Deploy
 
+# DISABLED — this workflow was written for Next.js on Vercel. After the
+# Angular 21 SSR pivot the build/runtime config is different (no NEXT_PUBLIC_*
+# env vars, different output directory, different Vercel adapter). Trigger is
+# pinned to workflow_dispatch (manual only) until we redo the deploy target.
+# See DECISIONS.md Entry #8 for context; future entry will cover the rewrite.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}

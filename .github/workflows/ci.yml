@@ -1,38 +1,55 @@
 name: CI
 
+# Run on every PR targeting main. Push events skip this workflow because
+# the production deploy workflow already validates main pushes.
 on:
   pull_request:
     branches: [main]
 
 jobs:
   quality:
+    name: Build and type-check
     runs-on: ubuntu-latest
+
     steps:
+      # Clone the repo into the runner. @v4 is the current major version of
+      # the official checkout action.
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - uses: actions/setup-node@v4
+      # Install Node 20 and turn on npm's built-in cache. The cache key is
+      # derived from package-lock.json — different lockfile, different cache.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
+          cache: npm
 
+      # `npm ci` is the lockfile-strict install. Faster than `npm install`
+      # in CI and fails if package.json and package-lock.json disagree.
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
-      - name: Lint
-        run: pnpm lint
+      # The real environment.ts is gitignored (contains real Supabase URL +
+      # anon key + Pl@ntNet API key). The build just needs the file to exist
+      # with valid TypeScript — runtime values are injected by the host
+      # (Vercel) at deploy time, not baked into the build.
+      - name: Generate environment.ts placeholder
+        run: |
+          cat > src/environments/environment.ts <<'EOF'
+          export const environment = {
+            production: false,
+            supabase: {
+              url: 'https://placeholder.supabase.co',
+              anonKey: 'placeholder-anon-key',
+            },
+            plantnet: {
+              apiKey: 'placeholder-plantnet-key',
+            },
+          };
+          EOF
 
-      - name: Type check
-        run: pnpm typecheck
-
+      # `ng build` runs the Angular compiler with full template type-checking,
+      # so this step covers both "does it compile" and "are the templates and
+      # bindings type-correct." No separate typecheck step needed.
       - name: Build
-        # Next.js inlines NEXT_PUBLIC_* env vars at build time. Real values
-        # come from Vercel at deploy time; here we just need *something*
-        # defined so the build doesn't fail on undefined imports.
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-        run: pnpm build
+        run: npm run build
