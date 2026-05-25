@@ -88,6 +88,33 @@ export class GardenService {
   }
 
   /**
+   * Update an existing garden by id. Returns the updated row.
+   *
+   * No user_id filter in the .eq() chain because the gardens_update_own
+   * RLS policy blocks the write if the row belongs to another user — same
+   * privacy property as reads. If RLS rejects, .single() returns zero rows
+   * and we throw a "not found" error rather than leaking that the row
+   * exists but belongs to someone else.
+   */
+  async update(id: string, input: NewGardenInput): Promise<Garden> {
+    const { data, error } = await this.supabase.client
+      .from('gardens')
+      .update({
+        name: input.name,
+        description: input.description ?? null,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') throw new Error('Garden not found.');
+      throw error;
+    }
+    return data as Garden;
+  }
+
+  /**
    * Insert a new garden owned by the current user. Throws if no user is
    * signed in (caller should already be behind authGuard, but we belt-and-
    * suspenders it here so a bug elsewhere can't write rows with a null

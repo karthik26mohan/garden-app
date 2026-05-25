@@ -40,7 +40,15 @@ import { Garden, GardenService } from '../garden.service';
           <a routerLink="/app/gardens">Back to your gardens</a>.
         </p>
       } @else {
-        <h1>{{ garden()!.name }}</h1>
+        <header class="garden-detail__header">
+          <h1>{{ garden()!.name }}</h1>
+          <a
+            [routerLink]="['/app/gardens', id, 'edit']"
+            class="btn btn--secondary"
+          >
+            Edit
+          </a>
+        </header>
         @if (garden()!.description) {
           <p>{{ garden()!.description }}</p>
         }
@@ -62,6 +70,19 @@ import { Garden, GardenService } from '../garden.service';
         &:hover { color: var(--accent); }
       }
     }
+    .garden-detail__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+
+      h1 {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 600;
+      }
+    }
     .garden-detail__error {
       color: var(--danger);
     }
@@ -77,8 +98,9 @@ export class GardenDetail implements OnInit {
   private platformId = inject(PLATFORM_ID);
 
   // The :id segment from the URL. snapshot is fine — Angular remounts this
-  // component when you navigate to a different garden.
-  private id = this.route.snapshot.paramMap.get('id');
+  // component when you navigate to a different garden. Public so the
+  // template can build the Edit link with [routerLink].
+  readonly id: string | null = this.route.snapshot.paramMap.get('id');
 
   garden = signal<Garden | null>(null);
   loading = signal(true);

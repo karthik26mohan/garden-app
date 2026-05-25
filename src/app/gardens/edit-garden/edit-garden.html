@@ -1,0 +1,66 @@
+<main class="edit-garden container">
+  <nav class="edit-garden__breadcrumb">
+    @if (id) {
+      <a [routerLink]="['/app/gardens', id]">← Back to garden</a>
+    } @else {
+      <a routerLink="/app/gardens">← Back to gardens</a>
+    }
+  </nav>
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (notFound()) {
+    <h1>Garden not found</h1>
+    <p>
+      Either it doesn't exist or it belongs to a different account.
+      <a routerLink="/app/gardens">Back to your gardens</a>.
+    </p>
+  } @else {
+    <h1>Edit garden</h1>
+
+    <form (ngSubmit)="submit()" class="edit-garden__form">
+      <label class="edit-garden__field">
+        <span>Name</span>
+        <input
+          type="text"
+          required
+          autofocus
+          maxlength="80"
+          [ngModel]="name()"
+          (ngModelChange)="name.set($event)"
+          name="name"
+        />
+      </label>
+
+      <label class="edit-garden__field">
+        <span>Description <em>(optional)</em></span>
+        <textarea
+          rows="3"
+          maxlength="500"
+          [ngModel]="description()"
+          (ngModelChange)="description.set($event)"
+          name="description"
+        ></textarea>
+      </label>
+
+      @if (errorMessage()) {
+        <p class="edit-garden__error">{{ errorMessage() }}</p>
+      }
+
+      <div class="edit-garden__actions">
+        @if (id) {
+          <a [routerLink]="['/app/gardens', id]" class="btn btn--secondary">
+            Cancel
+          </a>
+        }
+        <button
+          type="submit"
+          class="btn btn--primary"
+          [disabled]="status() === 'saving' || !name().trim()"
+        >
+          {{ status() === 'saving' ? 'Saving…' : 'Save changes' }}
+        </button>
+      </div>
+    </form>
+  }
+</main>

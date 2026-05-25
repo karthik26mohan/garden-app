@@ -28,6 +28,15 @@ export const routes: Routes = [
       import('./gardens/new-garden/new-garden').then((m) => m.NewGarden),
   },
   {
+    // More-specific path comes before the bare /:id route. They don't
+    // actually collide (different segment count), but listing specific
+    // before general is a habit worth keeping.
+    path: 'app/gardens/:id/edit',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./gardens/edit-garden/edit-garden').then((m) => m.EditGarden),
+  },
+  {
     // :id is a route parameter — anything in that URL segment is captured
     // as a string and exposed via ActivatedRoute.snapshot.paramMap.
     path: 'app/gardens/:id',
