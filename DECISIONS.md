@@ -270,6 +270,66 @@
 
 ---
 
+## 10. Leaflet + Leaflet.Draw for the map UI
+**Date:** 2026-05-24
+**Status:** Superseded by #11 (decided 2026-05-24, before any Leaflet code was written)
+
+**Context.** The `gardens` table has a `boundary` (polygon) and `centroid` (point) column, both `geography(_, 4326)`. The UI needs to (a) show a tile-based map for the user to find their location, and (b) let them draw a polygon for the garden footprint and place a single point for the centroid. The choice of library shapes the dev experience, bundle size, billing setup, and how the app looks.
+
+**Options considered.**
+- **Leaflet + Leaflet.Draw** — open-source (BSD), ~40KB, raster tiles via OpenStreetMap. No API key, no billing. Mature polygon-drawing plugin. Looks slightly dated but functionally rock-solid.
+- **MapLibre GL JS** — open-source fork of Mapbox GL JS v1. ~200KB, vector tiles, sharper visuals, WebGL-rendered. Free tile providers (OpenFreeMap, Stadia, Versatiles) so no API key needed.
+- **Mapbox GL JS** — proprietary since v2, real free tier (~50k loads/month), then $5/1000. API key required.
+- **Google Maps JavaScript API** — best tile quality, $200/month free credit then $7/1000. API key with billing enabled required. ~1MB+ initial bundle.
+
+**Decision.** Leaflet + Leaflet.Draw. Plain Leaflet without the `@asymmetrik/ngx-leaflet` wrapper — the wrapper hides Leaflet behind Angular abstractions that make the bundle larger and the docs less useful.
+
+**Why (in my own words).**
+*Hints to weave into your answer:*
+- *Side projects die when the next step is "create a vendor account and add a credit card." Leaflet has zero friction — `npm install leaflet`, render a map.*
+- *Bundle size matters: ~40KB Leaflet vs ~200KB MapLibre vs ~1MB Google. The map library shouldn't be the largest dependency in a small app.*
+- *The primary interaction is polygon drawing. Leaflet.Draw is the most mature drawing plugin (10+ years of polish), and getting that UX right is more valuable than vector-tile sharpness.*
+- *If vector tiles ever become important, MapLibre is a clean swap — its API is intentionally similar to Leaflet for migration. So "Leaflet now" doesn't preclude "MapLibre later."*
+
+**Tradeoffs / what we're giving up.**
+*Hints:*
+- *Raster tiles look pixelated on aggressive zoom and on high-DPI (Retina) displays. Acceptable for a "where is my garden, here are its boundaries" use case; would matter more for a survey/mapping app.*
+- *No vector-tile features — can't do smooth continuous zoom, custom styling at the tile layer, 3D rendering, or runtime style swaps. Probably never matters for this app.*
+- *Leaflet is browser-only (touches `window` and `document` everywhere). Loading it has to be guarded with `isPlatformBrowser` to avoid blowing up SSR/prerender — already the pattern we use for Supabase, so not a new constraint.*
+
+---
+
+## 11. Plain-SVG property-relative editor (over Leaflet / geographic tiles)
+**Date:** 2026-05-24
+**Status:** Accepted (supersedes #10)
+
+**Context.** Entry #10 chose Leaflet under the assumption that a "garden" was a thing you'd find on a world map — somewhere you'd want geographic tiles and lat/lng coordinates. Five minutes after picking Leaflet, the requirement got clarified: each garden is a 10×20 ft section of a backyard, ~9 per user, and the user wants to see them positioned **relative to their house**, not on a world map. Satellite tiles don't have useful resolution at the 50–100 ft scale, OpenStreetMap doesn't know the layout of a residential backyard, and lat/lng to 7 decimals is more precision than "approximately here in the yard" needs. Wrong abstraction.
+
+**Options considered.**
+- **Leaflet + OSM tiles** (original #10 pick) — geographic map. Wrong scale; tiles don't help at the backyard level.
+- **Leaflet with `L.CRS.Simple` + a backdrop image** — Leaflet configured for non-geographic XY coordinates, plus an aerial photo of the property as the backdrop. Workable but heavy; uses a tile-based library to draw a single image.
+- **Konva.js canvas editor** — purpose-built shape-editor library with drag/resize/rotate handles built in. ~150KB. Smooth interactions.
+- **Plain SVG, drag/resize handled in component code** — no third-party library. SVG `<rect>` elements positioned absolutely; pointer events for drag/resize. ~200 lines of editor code.
+- **Backdrop-image variant of any of the above** — user uploads an aerial screenshot of their property, shapes draw on top. Adds calibration UX + image upload.
+
+**Decision.** Plain SVG, rectangles only, coordinates in feet relative to a fixed origin (one corner of the yard). No backdrop image for MVP — gardens render on a plain grid. House placement is a separate follow-up decision (own DECISIONS entry when we get there). The schema migrates from `geography(polygon, 4326)` / `geography(point, 4326)` to four plain numeric columns (`position_x_ft`, `position_y_ft`, `width_ft`, `height_ft`) — those PostGIS types are wrong for non-geographic data.
+
+**Why (in my own words).**
+*Hints to weave into your answer:*
+- *The right tool follows the requirement, not the other way around. Once I knew each "garden" is a 10×20 ft plot in a backyard, every map-library option collapsed into "wrong scale." A 200-line SVG editor beats a 40KB library when the library was built for a problem you don't have.*
+- *Zero dependencies for the editor means zero version-upgrade churn, zero bundle bloat, and the editor's behavior is fully under my control — every keypress and pointer event is in my own code.*
+- *Rectangles are the right primitive for ~9 backyard garden plots. Most plots ARE rectangles. Once they aren't (kidney-shaped flowerbed, curving raised bed), I can graduate to polygons later — but that's a real "need three" moment, not a hypothetical now.*
+- *Reversing Entry #10 within an hour of picking it is a good signal, not a bad one — it proves the decision journal is doing its job. The journal exists so the decision is reviewable; if no entry ever flips, the entries are rubber-stamps.*
+
+**Tradeoffs / what we're giving up.**
+*Hints:*
+- *No real-world tiles means no "show the property on a world map" affordance for free. If that ever becomes useful (e.g., supporting multiple properties per user), we add a second view rather than rewriting the editor.*
+- *No backdrop image means the editor feels more abstract — grid + labeled rectangles, not "here is your actual yard from above." Acceptable for MVP; uploading + calibrating an aerial image is its own can of worms.*
+- *Rectangle-only shapes can't represent curved or irregular plots. Same response as above — we add polygon support later if the limitation bites.*
+- *Hand-rolling drag/resize is more code than reaching for Konva.js. The tradeoff is fewer dependencies vs. fewer lines of editor code; for an MVP at this scale, fewer dependencies wins. Konva is a clean swap-in later if the editor's interactions feel rough.*
+
+---
+
 ## How to use this going forward
 
 Whenever Claude and I make a non-obvious choice, Claude scaffolds the **Context**, **Options**, and **Decision** sections; I rewrite the *italic hints* in my own words into the **Why** and **Tradeoffs** sections. Goal: by Day 10, every entry is in my voice, and I can riff on any of them for 60 seconds in an interview.
