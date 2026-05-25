@@ -6,10 +6,10 @@ import { GardenService } from '../garden.service';
 /**
  * "New garden" form. Lives at /app/gardens/new.
  *
- * Two fields for MVP: name (required) + description (optional). The boundary
- * polygon and centroid columns in the schema are intentionally deferred —
- * map-drawing UI gets its own decision (Leaflet vs Mapbox vs Google Maps)
- * and its own follow-up commit. Rows we create here leave those columns null.
+ * Two fields for MVP: name (required) + description (optional). Position
+ * and size are intentionally deferred to a separate chunk — new rows get
+ * the database defaults (position 0,0, size 10x20 ft) and the user drags
+ * them into place in the SVG editor (see DECISIONS.md Entry #11).
  *
  * Behind authGuard, so getUser() in GardenService.create will always succeed
  * once we reach the submit handler.

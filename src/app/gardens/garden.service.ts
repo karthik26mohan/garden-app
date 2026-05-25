@@ -4,17 +4,25 @@ import { SupabaseService } from '../supabase.service';
 /**
  * Shape of a row in the public.gardens table.
  *
- * Mirrors the schema in supabase/migrations/20260516000002_gardens.sql.
- * boundary and centroid are geography columns; we keep them as unknown on
- * the client until the map UI lands and we wire up a real GeoJSON type.
+ * Mirrors the schema in supabase/migrations/20260516000002_gardens.sql
+ * plus the 20260524000001 migration that swapped PostGIS columns for
+ * relative-feet coordinates. See DECISIONS.md Entry #11.
+ *
+ * Coordinate convention:
+ *   Origin = top-left corner of the yard
+ *   X axis = increases rightward (east)
+ *   Y axis = increases downward (south)
+ *   Unit   = feet
  */
 export interface Garden {
   id: string;
   user_id: string;
   name: string;
   description: string | null;
-  boundary: unknown | null;
-  centroid: unknown | null;
+  position_x_ft: number;
+  position_y_ft: number;
+  width_ft: number;
+  height_ft: number;
   created_at: string;
   updated_at: string;
 }
