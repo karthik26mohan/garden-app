@@ -65,7 +65,8 @@ export class EditGarden implements OnInit {
       if (!garden) {
         this.notFound.set(true);
       } else {
-        // Pre-fill the form with current values.
+        // Pre-fill the form with current values. Position and size are
+        // edited visually in the yard editor, not here.
         this.name.set(garden.name);
         this.description.set(garden.description ?? '');
       }
@@ -95,6 +96,9 @@ export class EditGarden implements OnInit {
       await this.gardenService.update(this.id, {
         name: trimmedName,
         description: this.description().trim() || undefined,
+        // Position/size deliberately omitted — they're owned by the
+        // visual editor, not this form. Service uses key-omission so
+        // existing values are preserved.
       });
       // Navigate back to the detail page so the user sees the updated row.
       this.router.navigateByUrl(`/app/gardens/${this.id}`);

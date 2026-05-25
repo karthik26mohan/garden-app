@@ -28,13 +28,23 @@ export interface Garden {
 }
 
 /**
- * Payload for creating a new garden. user_id is added by the service
- * (pulled from the current Supabase session), not by callers — that way
- * components can stay ignorant of auth state.
+ * Payload for creating or updating a garden. user_id is added by the
+ * service (pulled from the current Supabase session), not by callers —
+ * that way components can stay ignorant of auth state.
+ *
+ * Position and size fields are optional here because the create form
+ * doesn't expose them (users place gardens visually in the editor, not
+ * by typing coordinates). When omitted on create, the DB schema defaults
+ * (0, 0, 10, 20) fill them in. The editor sets them via update() once
+ * the user has dragged things into place.
  */
 export interface NewGardenInput {
   name: string;
   description?: string;
+  position_x_ft?: number;
+  position_y_ft?: number;
+  width_ft?: number;
+  height_ft?: number;
 }
 
 /**
@@ -105,11 +115,23 @@ export class GardenService {
    * exists but belongs to someone else.
    */
   async update(id: string, input: NewGardenInput): Promise<Garden> {
+    // Same `...(cond && { key: value })` key-omission pattern as create()
+    // — see the longer explanation there. Lets the form update
+    // name+description without touching position/size, and lets the editor
+    // update position/size without touching name+description.
     const { data, error } = await this.supabase.client
       .from('gardens')
       .update({
         name: input.name,
         description: input.description ?? null,
+        ...(input.position_x_ft !== undefined && {
+          position_x_ft: input.position_x_ft,
+        }),
+        ...(input.position_y_ft !== undefined && {
+          position_y_ft: input.position_y_ft,
+        }),
+        ...(input.width_ft !== undefined && { width_ft: input.width_ft }),
+        ...(input.height_ft !== undefined && { height_ft: input.height_ft }),
       })
       .eq('id', id)
       .select()
@@ -153,12 +175,45 @@ export class GardenService {
       throw new Error('Not signed in.');
     }
 
+    // Only include position/size keys if the caller provided them; omitting
+    // a key lets the DB default fill it in. New gardens from the form omit
+    // all four and land at (0, 0) with size 10x20. The editor calls update()
+    // with the real values once the user has placed them.
+    //
+    // ── The `...(cond && { key: value })` pattern explained ──
+    // This is the JS idiom for "include this key in the object only if a
+    // condition holds." How it works:
+    //
+    //   condition === true  → the expression evaluates to `{ key: value }`,
+    //                         which spreads into the surrounding object and
+    //                         adds the key.
+    //   condition === false → the expression evaluates to `false`, and JS
+    //                         silently ignores spreads of non-objects. The
+    //                         key is simply absent from the final object.
+    //
+    // We use `!== undefined` (not a truthy check) so that legitimate falsy
+    // values like `position_x_ft: 0` still count as "set." A pure truthy
+    // check (`input.position_x_ft && ...`) would drop zero coordinates,
+    // which are perfectly valid — the origin of the yard is (0, 0).
+    //
+    // The Supabase JS client treats "key absent" and "key: undefined"
+    // differently: an absent key triggers the DB column default, while
+    // `undefined` is serialized as `null` in the JSON payload (overwriting
+    // any existing value with null). This pattern avoids that footgun.
     const { data, error } = await this.supabase.client
       .from('gardens')
       .insert({
         user_id: user.id,
         name: input.name,
         description: input.description ?? null,
+        ...(input.position_x_ft !== undefined && {
+          position_x_ft: input.position_x_ft,
+        }),
+        ...(input.position_y_ft !== undefined && {
+          position_y_ft: input.position_y_ft,
+        }),
+        ...(input.width_ft !== undefined && { width_ft: input.width_ft }),
+        ...(input.height_ft !== undefined && { height_ft: input.height_ft }),
       })
       .select()
       .single();

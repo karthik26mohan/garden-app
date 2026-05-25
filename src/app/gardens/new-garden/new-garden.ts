@@ -47,6 +47,8 @@ export class NewGarden {
       await this.gardenService.create({
         name: trimmedName,
         description: this.description().trim() || undefined,
+        // Position/size deliberately omitted — DB defaults to (0, 0) at
+        // size 10x20 ft. User drags into place in the editor afterward.
       });
       this.router.navigateByUrl('/app/gardens');
     } catch (err) {
