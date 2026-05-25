@@ -6,7 +6,7 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe, isPlatformBrowser } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Garden, GardenService } from '../garden.service';
 
 /**
@@ -42,12 +42,22 @@ import { Garden, GardenService } from '../garden.service';
       } @else {
         <header class="garden-detail__header">
           <h1>{{ garden()!.name }}</h1>
-          <a
-            [routerLink]="['/app/gardens', id, 'edit']"
-            class="btn btn--secondary"
-          >
-            Edit
-          </a>
+          <div class="garden-detail__actions">
+            <a
+              [routerLink]="['/app/gardens', id, 'edit']"
+              class="btn btn--secondary"
+            >
+              Edit
+            </a>
+            <button
+              type="button"
+              class="btn btn--danger"
+              [disabled]="deleting()"
+              (click)="onDelete()"
+            >
+              {{ deleting() ? 'Deleting…' : 'Delete' }}
+            </button>
+          </div>
         </header>
         @if (garden()!.description) {
           <p>{{ garden()!.description }}</p>
@@ -76,12 +86,17 @@ import { Garden, GardenService } from '../garden.service';
       justify-content: space-between;
       gap: 1rem;
       margin-bottom: 1rem;
+      flex-wrap: wrap;
 
       h1 {
         margin: 0;
         font-size: 1.75rem;
         font-weight: 600;
       }
+    }
+    .garden-detail__actions {
+      display: flex;
+      gap: 0.5rem;
     }
     .garden-detail__error {
       color: var(--danger);
@@ -94,6 +109,7 @@ import { Garden, GardenService } from '../garden.service';
 })
 export class GardenDetail implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private gardenService = inject(GardenService);
   private platformId = inject(PLATFORM_ID);
 
@@ -104,6 +120,7 @@ export class GardenDetail implements OnInit {
 
   garden = signal<Garden | null>(null);
   loading = signal(true);
+  deleting = signal(false);
   errorMessage = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
@@ -124,6 +141,32 @@ export class GardenDetail implements OnInit {
       );
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  /**
+   * Delete this garden after a confirm prompt. Browser confirm() is a
+   * deliberate MVP choice — accessible, blocking, free — to swap for a
+   * custom modal later if we want better styling.
+   */
+  async onDelete(): Promise<void> {
+    if (!this.id) return;
+
+    const name = this.garden()?.name ?? 'this garden';
+    const ok = window.confirm(
+      `Delete "${name}"? This cannot be undone.`,
+    );
+    if (!ok) return;
+
+    this.deleting.set(true);
+    try {
+      await this.gardenService.delete(this.id);
+      this.router.navigateByUrl('/app/gardens');
+    } catch (err) {
+      this.deleting.set(false);
+      this.errorMessage.set(
+        err instanceof Error ? err.message : 'Failed to delete garden.',
+      );
     }
   }
 }

@@ -115,6 +115,22 @@ export class GardenService {
   }
 
   /**
+   * Delete a garden by id. No-op if the row doesn't exist or RLS hides it.
+   *
+   * Note: Supabase doesn't error if the delete matches zero rows. From the
+   * caller's perspective there's no way to distinguish "you deleted it" from
+   * "it was already gone" — which is fine, both are the desired end state.
+   */
+  async delete(id: string): Promise<void> {
+    const { error } = await this.supabase.client
+      .from('gardens')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  }
+
+  /**
    * Insert a new garden owned by the current user. Throws if no user is
    * signed in (caller should already be behind authGuard, but we belt-and-
    * suspenders it here so a bug elsewhere can't write rows with a null
