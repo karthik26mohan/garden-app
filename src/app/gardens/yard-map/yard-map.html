@@ -1,0 +1,97 @@
+<figure class="yard-map">
+  <svg
+    #svgEl
+    class="yard-map__svg"
+    [attr.viewBox]="viewBox()"
+    preserveAspectRatio="xMidYMid meet"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <!--
+      Grid pattern: a 1×1 tile (1ft × 1ft) with an L-shaped line at the
+      top + left edges. SVG tiles this across the background rect. The
+      second pattern is heavier and tiles every 10 ft for orientation.
+    -->
+    <defs>
+      <pattern
+        id="yard-grid"
+        width="1"
+        height="1"
+        patternUnits="userSpaceOnUse"
+      >
+        <path
+          d="M 1 0 L 0 0 L 0 1"
+          fill="none"
+          stroke="#e7e5e4"
+          stroke-width="0.05"
+        />
+      </pattern>
+      <pattern
+        id="yard-grid-major"
+        width="10"
+        height="10"
+        patternUnits="userSpaceOnUse"
+      >
+        <path
+          d="M 10 0 L 0 0 L 0 10"
+          fill="none"
+          stroke="#a8a29e"
+          stroke-width="0.08"
+        />
+      </pattern>
+    </defs>
+
+    <!--
+      Background grid tracks the visible view, so wherever the user
+      zooms or pans to, the grid is always painted under it. The fine
+      and major patterns layer.
+    -->
+    <rect
+      [attr.x]="viewX()"
+      [attr.y]="viewY()"
+      [attr.width]="viewWidth()"
+      [attr.height]="viewHeight()"
+      fill="url(#yard-grid)"
+    />
+    <rect
+      [attr.x]="viewX()"
+      [attr.y]="viewY()"
+      [attr.width]="viewWidth()"
+      [attr.height]="viewHeight()"
+      fill="url(#yard-grid-major)"
+    />
+
+    @for (garden of gardens(); track garden.id) {
+      @let isDragging = draggingId() === garden.id;
+      @let x = isDragging ? dragX() : garden.position_x_ft;
+      @let y = isDragging ? dragY() : garden.position_y_ft;
+      <g
+        class="yard-map__garden"
+        [class.yard-map__garden--dragging]="isDragging"
+      >
+        <rect
+          [attr.x]="x"
+          [attr.y]="y"
+          [attr.width]="garden.width_ft"
+          [attr.height]="garden.height_ft"
+          class="yard-map__rect"
+          (pointerdown)="onPointerDown($event, garden)"
+          (pointermove)="onPointerMove($event)"
+          (pointerup)="onPointerUp($event)"
+          (pointercancel)="onPointerUp($event)"
+        />
+        <text
+          [attr.x]="x + garden.width_ft / 2"
+          [attr.y]="y + garden.height_ft / 2"
+          text-anchor="middle"
+          dominant-baseline="middle"
+          class="yard-map__label"
+        >
+          {{ garden.name }}
+        </text>
+      </g>
+    }
+  </svg>
+  <figcaption class="yard-map__legend">
+    1 square = 1 ft · drag a garden to reposition
+  </figcaption>
+</figure>

@@ -1,0 +1,50 @@
+.yard-map {
+  margin: 0 0 2rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+
+  &__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 70vh;
+    background: #fafaf9;
+
+    // touch-action: none so mobile browsers don't treat drags as page
+    // scrolls inside the canvas.
+    touch-action: none;
+  }
+
+  &__rect {
+    fill: rgba(21, 128, 61, 0.18);
+    stroke: var(--accent);
+    stroke-width: 0.15;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  &__garden--dragging &__rect {
+    fill: rgba(21, 128, 61, 0.32);
+    stroke-width: 0.25;
+  }
+
+  &__label {
+    fill: var(--text);
+    font-size: 2px;
+    font-weight: 500;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  &__legend {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+}

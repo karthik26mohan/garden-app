@@ -9,6 +9,7 @@ import { DatePipe, isPlatformBrowser } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { SupabaseService } from '../supabase.service';
 import { Garden, GardenService } from './garden.service';
+import { YardMap } from './yard-map/yard-map';
 
 /**
  * Garden list page. Lives at /app/gardens.
@@ -23,7 +24,7 @@ import { Garden, GardenService } from './garden.service';
  */
 @Component({
   selector: 'app-gardens',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, YardMap],
   templateUrl: './gardens.html',
   styleUrl: './gardens.scss',
 })
@@ -66,5 +67,41 @@ export class Gardens implements OnInit {
   async signOut(): Promise<void> {
     await this.supabase.client.auth.signOut();
     this.router.navigateByUrl('/login');
+  }
+
+  /**
+   * Yard-map emitted a drag-end. Optimistically update our local gardens
+   * signal so the rect doesn't visually snap back while the DB write is
+   * in flight, then persist via the service. If the network call fails,
+   * revert and surface the error.
+   */
+  async onPositionChange(e: {
+    gardenId: string;
+    positionX: number;
+    positionY: number;
+  }): Promise<void> {
+    const previous = this.gardens();
+
+    this.gardens.update((list) =>
+      list.map((g) =>
+        g.id === e.gardenId
+          ? { ...g, position_x_ft: e.positionX, position_y_ft: e.positionY }
+          : g,
+      ),
+    );
+
+    try {
+      await this.gardenService.updatePosition(
+        e.gardenId,
+        e.positionX,
+        e.positionY,
+      );
+    } catch (err) {
+      // Revert the optimistic update.
+      this.gardens.set(previous);
+      this.errorMessage.set(
+        err instanceof Error ? err.message : 'Failed to save garden position.',
+      );
+    }
   }
 }

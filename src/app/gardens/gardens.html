@@ -19,6 +19,11 @@
     </div>
   </header>
 
+  <app-yard-map
+    [gardens]="gardens()"
+    (positionChange)="onPositionChange($event)"
+  />
+
   @if (loading()) {
     <p class="gardens__status">Loading…</p>
   } @else if (errorMessage()) {

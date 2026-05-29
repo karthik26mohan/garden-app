@@ -145,6 +145,25 @@ export class GardenService {
   }
 
   /**
+   * Update only the position fields of a garden. Used by the yard-map
+   * editor when the user drags a rectangle and releases. Separate from
+   * update() so we don't need to thread the whole NewGardenInput through
+   * the drag handler — position is the only thing the drag touches.
+   */
+  async updatePosition(
+    id: string,
+    positionX: number,
+    positionY: number,
+  ): Promise<void> {
+    const { error } = await this.supabase.client
+      .from('gardens')
+      .update({ position_x_ft: positionX, position_y_ft: positionY })
+      .eq('id', id);
+
+    if (error) throw error;
+  }
+
+  /**
    * Delete a garden by id. No-op if the row doesn't exist or RLS hides it.
    *
    * Note: Supabase doesn't error if the delete matches zero rows. From the
