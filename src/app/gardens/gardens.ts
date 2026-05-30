@@ -70,37 +70,47 @@ export class Gardens implements OnInit {
   }
 
   /**
-   * Yard-map emitted a drag-end. Optimistically update our local gardens
-   * signal so the rect doesn't visually snap back while the DB write is
-   * in flight, then persist via the service. If the network call fails,
-   * revert and surface the error.
+   * Yard-map emitted a box-change (drag-end or resize-end). Optimistically
+   * update our local gardens signal so the rect doesn't visually snap back
+   * while the DB write is in flight, then persist via the service. If the
+   * network call fails, revert and surface the error.
    */
-  async onPositionChange(e: {
+  async onBoxChange(e: {
     gardenId: string;
     positionX: number;
     positionY: number;
+    width: number;
+    height: number;
   }): Promise<void> {
     const previous = this.gardens();
 
     this.gardens.update((list) =>
       list.map((g) =>
         g.id === e.gardenId
-          ? { ...g, position_x_ft: e.positionX, position_y_ft: e.positionY }
+          ? {
+              ...g,
+              position_x_ft: e.positionX,
+              position_y_ft: e.positionY,
+              width_ft: e.width,
+              height_ft: e.height,
+            }
           : g,
       ),
     );
 
     try {
-      await this.gardenService.updatePosition(
+      await this.gardenService.updateBox(
         e.gardenId,
         e.positionX,
         e.positionY,
+        e.width,
+        e.height,
       );
     } catch (err) {
       // Revert the optimistic update.
       this.gardens.set(previous);
       this.errorMessage.set(
-        err instanceof Error ? err.message : 'Failed to save garden position.',
+        err instanceof Error ? err.message : 'Failed to save garden.',
       );
     }
   }

@@ -103,17 +103,21 @@
 
     @for (garden of gardens(); track garden.id) {
       @let isDragging = draggingId() === garden.id;
-      @let x = isDragging ? dragX() : garden.position_x_ft;
-      @let y = isDragging ? dragY() : garden.position_y_ft;
+      @let isResizing = resizingId() === garden.id;
+      @let x = isResizing ? resizeX() : isDragging ? dragX() : garden.position_x_ft;
+      @let y = isResizing ? resizeY() : isDragging ? dragY() : garden.position_y_ft;
+      @let w = isResizing ? resizeW() : garden.width_ft;
+      @let h = isResizing ? resizeH() : garden.height_ft;
       <g
         class="yard-map__garden"
         [class.yard-map__garden--dragging]="isDragging"
+        [class.yard-map__garden--resizing]="isResizing"
       >
         <rect
           [attr.x]="x"
           [attr.y]="y"
-          [attr.width]="garden.width_ft"
-          [attr.height]="garden.height_ft"
+          [attr.width]="w"
+          [attr.height]="h"
           class="yard-map__rect"
           (pointerdown)="onPointerDown($event, garden)"
           (pointermove)="onPointerMove($event)"
@@ -121,14 +125,64 @@
           (pointercancel)="onPointerUp($event)"
         />
         <text
-          [attr.x]="x + garden.width_ft / 2"
-          [attr.y]="y + garden.height_ft / 2"
+          [attr.x]="x + w / 2"
+          [attr.y]="y + h / 2"
           text-anchor="middle"
           dominant-baseline="middle"
           class="yard-map__label"
         >
           {{ garden.name }}
         </text>
+
+        <!--
+          Four corner resize handles. Each is a small square centered on
+          a corner of the garden rect. Cursors hint at the resize axis;
+          the handler computes the new box with the OPPOSITE corner fixed.
+        -->
+        <rect
+          [attr.x]="x - handleSize / 2"
+          [attr.y]="y - handleSize / 2"
+          [attr.width]="handleSize"
+          [attr.height]="handleSize"
+          class="yard-map__handle yard-map__handle--nw"
+          (pointerdown)="onResizeStart($event, garden, 'nw')"
+          (pointermove)="onResizeMove($event)"
+          (pointerup)="onResizeEnd($event)"
+          (pointercancel)="onResizeEnd($event)"
+        />
+        <rect
+          [attr.x]="x + w - handleSize / 2"
+          [attr.y]="y - handleSize / 2"
+          [attr.width]="handleSize"
+          [attr.height]="handleSize"
+          class="yard-map__handle yard-map__handle--ne"
+          (pointerdown)="onResizeStart($event, garden, 'ne')"
+          (pointermove)="onResizeMove($event)"
+          (pointerup)="onResizeEnd($event)"
+          (pointercancel)="onResizeEnd($event)"
+        />
+        <rect
+          [attr.x]="x - handleSize / 2"
+          [attr.y]="y + h - handleSize / 2"
+          [attr.width]="handleSize"
+          [attr.height]="handleSize"
+          class="yard-map__handle yard-map__handle--sw"
+          (pointerdown)="onResizeStart($event, garden, 'sw')"
+          (pointermove)="onResizeMove($event)"
+          (pointerup)="onResizeEnd($event)"
+          (pointercancel)="onResizeEnd($event)"
+        />
+        <rect
+          [attr.x]="x + w - handleSize / 2"
+          [attr.y]="y + h - handleSize / 2"
+          [attr.width]="handleSize"
+          [attr.height]="handleSize"
+          class="yard-map__handle yard-map__handle--se"
+          (pointerdown)="onResizeStart($event, garden, 'se')"
+          (pointermove)="onResizeMove($event)"
+          (pointerup)="onResizeEnd($event)"
+          (pointercancel)="onResizeEnd($event)"
+        />
       </g>
     }
   </svg>

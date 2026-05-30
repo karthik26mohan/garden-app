@@ -69,9 +69,21 @@
     }
   }
 
-  &__garden--dragging &__rect {
+  &__garden--dragging &__rect,
+  &__garden--resizing &__rect {
     fill: rgba(21, 128, 61, 0.32);
     stroke-width: 0.25;
+  }
+
+  &__handle {
+    fill: white;
+    stroke: var(--accent);
+    stroke-width: 0.1;
+
+    &--nw { cursor: nw-resize; }
+    &--ne { cursor: ne-resize; }
+    &--sw { cursor: sw-resize; }
+    &--se { cursor: se-resize; }
   }
 
   &__label {

@@ -145,19 +145,27 @@ export class GardenService {
   }
 
   /**
-   * Update only the position fields of a garden. Used by the yard-map
-   * editor when the user drags a rectangle and releases. Separate from
-   * update() so we don't need to thread the whole NewGardenInput through
-   * the drag handler — position is the only thing the drag touches.
+   * Update the bounding box of a garden — position and size in one call.
+   * Used by the yard-map editor for both drag-to-move (only x/y change,
+   * w/h carry over unchanged) and corner-resize (any of the four can
+   * change). Unified so the editor emits one event shape regardless of
+   * which interaction was active.
    */
-  async updatePosition(
+  async updateBox(
     id: string,
     positionX: number,
     positionY: number,
+    width: number,
+    height: number,
   ): Promise<void> {
     const { error } = await this.supabase.client
       .from('gardens')
-      .update({ position_x_ft: positionX, position_y_ft: positionY })
+      .update({
+        position_x_ft: positionX,
+        position_y_ft: positionY,
+        width_ft: width,
+        height_ft: height,
+      })
       .eq('id', id);
 
     if (error) throw error;

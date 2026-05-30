@@ -10,6 +10,9 @@ import {
 } from '@angular/core';
 import { Garden } from '../garden.service';
 
+/** Which corner the user grabbed when starting a resize. */
+type Corner = 'nw' | 'ne' | 'sw' | 'se';
+
 /**
  * Top-down editor view of the user's yard. Each garden renders as a
  * draggable rectangle at its stored position/size. 1 SVG unit = 1 foot,
@@ -59,10 +62,18 @@ import { Garden } from '../garden.service';
 export class YardMap {
   gardens = input.required<Garden[]>();
 
-  positionChange = output<{
+  /**
+   * Fires when a drag or resize ends and the garden's bounding box has
+   * changed. Unified across both interactions so the parent only wires
+   * up one handler. Parent should persist via GardenService.updateBox
+   * and optimistically update its local gardens signal.
+   */
+  boxChange = output<{
     gardenId: string;
     positionX: number;
     positionY: number;
+    width: number;
+    height: number;
   }>();
 
   // View state — what region of the SVG is visible right now (in feet).
@@ -105,6 +116,27 @@ export class YardMap {
   private panStartViewX = 0;
   private panStartViewY = 0;
   private panScale = 1;
+
+  // Resize state. Same shape as drag state, plus the corner being dragged
+  // and live width/height (drag only needs live x/y).
+  protected resizingId = signal<string | null>(null);
+  protected resizeX = signal(0);
+  protected resizeY = signal(0);
+  protected resizeW = signal(0);
+  protected resizeH = signal(0);
+  private resizeCorner: Corner = 'nw';
+  private resizeStartPointerX = 0;
+  private resizeStartPointerY = 0;
+  private resizeStartX = 0;
+  private resizeStartY = 0;
+  private resizeStartW = 0;
+  private resizeStartH = 0;
+  private resizeScale = 1;
+
+  // Visual size of each corner handle, in SVG units (feet). Reasonable
+  // grab target at typical zoom levels (~12 actual pixels). Exposed so
+  // the template can position the handles.
+  protected readonly handleSize = 0.6;
 
   constructor() {
     // Auto-fit the view to the gardens ONCE on first non-empty load.
@@ -260,15 +292,156 @@ export class YardMap {
     const finalX = this.dragX();
     const finalY = this.dragY();
 
+    // Find the garden so we can include its (unchanged) width/height in
+    // the boxChange event. Drag doesn't touch size, but boxChange's
+    // contract is "here are all four box fields."
+    const garden = this.gardens().find((g) => g.id === id);
     this.draggingId.set(null);
 
     // Only emit if the position actually changed.
-    if (finalX !== this.dragStartGardenX || finalY !== this.dragStartGardenY) {
-      this.positionChange.emit({
+    if (
+      garden &&
+      (finalX !== this.dragStartGardenX || finalY !== this.dragStartGardenY)
+    ) {
+      this.boxChange.emit({
         gardenId: id,
         positionX: finalX,
         positionY: finalY,
+        width: garden.width_ft,
+        height: garden.height_ft,
       });
+    }
+  }
+
+  // ── Resize handlers ───────────────────────────────────────────
+  // Same pointer-event lifecycle as drag (down → move → up), but the
+  // math computes a new box from a fixed opposite corner. Each garden
+  // has four handles in the template, each pre-bound to its corner.
+
+  onResizeStart(event: PointerEvent, garden: Garden, corner: Corner): void {
+    const svg = this.svgRef()?.nativeElement;
+    if (!svg) return;
+
+    // Same stopPropagation reasoning as garden drag — don't let this
+    // bubble to the SVG's pan handler.
+    event.stopPropagation();
+    (event.target as Element).setPointerCapture(event.pointerId);
+
+    const rect = svg.getBoundingClientRect();
+    this.resizeScale = this.viewWidth() / rect.width;
+
+    this.resizeCorner = corner;
+    this.resizeStartPointerX = event.clientX;
+    this.resizeStartPointerY = event.clientY;
+    this.resizeStartX = garden.position_x_ft;
+    this.resizeStartY = garden.position_y_ft;
+    this.resizeStartW = garden.width_ft;
+    this.resizeStartH = garden.height_ft;
+
+    this.resizingId.set(garden.id);
+    this.resizeX.set(this.resizeStartX);
+    this.resizeY.set(this.resizeStartY);
+    this.resizeW.set(this.resizeStartW);
+    this.resizeH.set(this.resizeStartH);
+  }
+
+  onResizeMove(event: PointerEvent): void {
+    if (!this.resizingId()) return;
+
+    const deltaSvgX =
+      (event.clientX - this.resizeStartPointerX) * this.resizeScale;
+    const deltaSvgY =
+      (event.clientY - this.resizeStartPointerY) * this.resizeScale;
+
+    const box = this.computeResizedBox(
+      this.resizeCorner,
+      this.resizeStartX,
+      this.resizeStartY,
+      this.resizeStartW,
+      this.resizeStartH,
+      deltaSvgX,
+      deltaSvgY,
+    );
+
+    this.resizeX.set(box.x);
+    this.resizeY.set(box.y);
+    this.resizeW.set(box.w);
+    this.resizeH.set(box.h);
+  }
+
+  onResizeEnd(_event: PointerEvent): void {
+    const id = this.resizingId();
+    if (!id) return;
+
+    const finalX = this.resizeX();
+    const finalY = this.resizeY();
+    const finalW = this.resizeW();
+    const finalH = this.resizeH();
+
+    this.resizingId.set(null);
+
+    // Emit if any of the four box fields changed.
+    const changed =
+      finalX !== this.resizeStartX ||
+      finalY !== this.resizeStartY ||
+      finalW !== this.resizeStartW ||
+      finalH !== this.resizeStartH;
+    if (changed) {
+      this.boxChange.emit({
+        gardenId: id,
+        positionX: finalX,
+        positionY: finalY,
+        width: finalW,
+        height: finalH,
+      });
+    }
+  }
+
+  /**
+   * Given a starting box, a corner being dragged, and the cursor delta in
+   * SVG units, return the new box. The opposite corner stays fixed;
+   * sizes snap to whole feet and stay ≥ 1 ft (so the rect can't invert).
+   */
+  private computeResizedBox(
+    corner: Corner,
+    startX: number,
+    startY: number,
+    startW: number,
+    startH: number,
+    deltaX: number,
+    deltaY: number,
+  ): { x: number; y: number; w: number; h: number } {
+    const minSize = 1;
+    const seX = startX + startW; // SE corner x (fixed for nw/sw)
+    const seY = startY + startH; // SE corner y (fixed for nw/ne)
+
+    switch (corner) {
+      case 'nw': {
+        // SE corner is fixed.
+        let newX = Math.round(startX + deltaX);
+        let newY = Math.round(startY + deltaY);
+        newX = Math.min(newX, seX - minSize);
+        newY = Math.min(newY, seY - minSize);
+        return { x: newX, y: newY, w: seX - newX, h: seY - newY };
+      }
+      case 'ne': {
+        // SW corner is fixed.
+        let newW = Math.max(Math.round(startW + deltaX), minSize);
+        let newY = Math.min(Math.round(startY + deltaY), seY - minSize);
+        return { x: startX, y: newY, w: newW, h: seY - newY };
+      }
+      case 'sw': {
+        // NE corner is fixed.
+        let newX = Math.min(Math.round(startX + deltaX), seX - minSize);
+        let newH = Math.max(Math.round(startH + deltaY), minSize);
+        return { x: newX, y: startY, w: seX - newX, h: newH };
+      }
+      case 'se': {
+        // NW corner is fixed.
+        let newW = Math.max(Math.round(startW + deltaX), minSize);
+        let newH = Math.max(Math.round(startH + deltaY), minSize);
+        return { x: startX, y: startY, w: newW, h: newH };
+      }
     }
   }
 
