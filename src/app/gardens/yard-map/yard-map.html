@@ -101,6 +101,21 @@
       fill="url(#yard-grid-major)"
     />
 
+    <!--
+      Live preview of the rectangle being drawn (Shift+drag on
+      background). pointer-events: none so the preview doesn't capture
+      pointermove and let it keep flowing to the SVG-level handlers.
+    -->
+    @if (isDrawing()) {
+      <rect
+        [attr.x]="drawX()"
+        [attr.y]="drawY()"
+        [attr.width]="drawW()"
+        [attr.height]="drawH()"
+        class="yard-map__draw-preview"
+      />
+    }
+
     @for (garden of gardens(); track garden.id) {
       @let isDragging = draggingId() === garden.id;
       @let isResizing = resizingId() === garden.id;
@@ -187,6 +202,7 @@
     }
   </svg>
   <figcaption class="yard-map__legend">
-    1 square = 1 ft · drag a garden to reposition
+    1 square = 1 ft · drag a garden to reposition · Shift+drag on the grid
+    to add a new garden
   </figcaption>
 </figure>

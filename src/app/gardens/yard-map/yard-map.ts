@@ -76,6 +76,20 @@ export class YardMap {
     height: number;
   }>();
 
+  /**
+   * Fires when the user finishes drawing a new garden rectangle on the
+   * background (Shift+drag → release → enter name). Parent should call
+   * GardenService.create with the supplied fields and add the result to
+   * the local gardens list.
+   */
+  drawComplete = output<{
+    name: string;
+    positionX: number;
+    positionY: number;
+    width: number;
+    height: number;
+  }>();
+
   // View state — what region of the SVG is visible right now (in feet).
   // Defaults are a generic 50×50 view starting at the origin; auto-fit
   // overrides on first non-empty gardens input.
@@ -137,6 +151,21 @@ export class YardMap {
   // grab target at typical zoom levels (~12 actual pixels). Exposed so
   // the template can position the handles.
   protected readonly handleSize = 0.6;
+
+  // Draw-new-garden state. Triggered by Shift+drag on the background.
+  // Live preview signals so the template can render the in-progress
+  // rectangle as the user drags.
+  protected isDrawing = signal(false);
+  protected drawX = signal(0);
+  protected drawY = signal(0);
+  protected drawW = signal(0);
+  protected drawH = signal(0);
+  // Bookkeeping — not signals; only read inside the move handler.
+  private drawStartSvgX = 0;
+  private drawStartSvgY = 0;
+  private drawStartPointerX = 0;
+  private drawStartPointerY = 0;
+  private drawScale = 1;
 
   constructor() {
     // Auto-fit the view to the gardens ONCE on first non-empty load.
@@ -498,6 +527,33 @@ export class YardMap {
   // own pointerdown so the SVG handler doesn't see them.
 
   onBackgroundPointerDown(event: PointerEvent): void {
+    // Shift modifier branches to draw-new-garden; otherwise pan.
+    if (event.shiftKey) {
+      this.startDraw(event);
+    } else {
+      this.startPan(event);
+    }
+  }
+
+  onBackgroundPointerMove(event: PointerEvent): void {
+    if (this.isDrawing()) {
+      this.updateDraw(event);
+    } else if (this.isPanning()) {
+      this.updatePan(event);
+    }
+  }
+
+  onBackgroundPointerUp(_event: PointerEvent): void {
+    if (this.isDrawing()) {
+      this.endDraw();
+    } else if (this.isPanning()) {
+      this.isPanning.set(false);
+    }
+  }
+
+  // ── Pan internals ─────────────────────────────────────────────
+
+  private startPan(event: PointerEvent): void {
     const svg = this.svgRef()?.nativeElement;
     if (!svg) return;
 
@@ -505,8 +561,6 @@ export class YardMap {
     // when the cursor leaves it (fast panning past the canvas edge).
     svg.setPointerCapture(event.pointerId);
 
-    // Pan uses the same pixel→SVG conversion as garden drag, with the
-    // CURRENT view width so the math stays right at any zoom level.
     const rect = svg.getBoundingClientRect();
     this.panScale = this.viewWidth() / rect.width;
 
@@ -518,9 +572,7 @@ export class YardMap {
     this.isPanning.set(true);
   }
 
-  onBackgroundPointerMove(event: PointerEvent): void {
-    if (!this.isPanning()) return;
-
+  private updatePan(event: PointerEvent): void {
     const deltaPxX = event.clientX - this.panStartPointerX;
     const deltaPxY = event.clientY - this.panStartPointerY;
 
@@ -534,7 +586,84 @@ export class YardMap {
     this.viewY.set(this.panStartViewY - deltaSvgY);
   }
 
-  onBackgroundPointerUp(_event: PointerEvent): void {
-    this.isPanning.set(false);
+  // ── Draw-new-garden internals ─────────────────────────────────
+
+  private startDraw(event: PointerEvent): void {
+    const svg = this.svgRef()?.nativeElement;
+    if (!svg) return;
+
+    svg.setPointerCapture(event.pointerId);
+
+    const rect = svg.getBoundingClientRect();
+    this.drawScale = this.viewWidth() / rect.width;
+
+    // Convert the click point from screen pixels to SVG coordinates.
+    // Pan uses pixel deltas (cheaper, doesn't care about absolute
+    // position), but draw needs the absolute SVG position of the start
+    // point as one of the rectangle's corners.
+    const fractionX = (event.clientX - rect.left) / rect.width;
+    const fractionY = (event.clientY - rect.top) / rect.height;
+    this.drawStartSvgX = this.viewX() + fractionX * this.viewWidth();
+    this.drawStartSvgY = this.viewY() + fractionY * this.viewHeight();
+    this.drawStartPointerX = event.clientX;
+    this.drawStartPointerY = event.clientY;
+
+    // Initialize preview as a 0×0 rect at the start point. Move handler
+    // grows it.
+    this.drawX.set(Math.round(this.drawStartSvgX));
+    this.drawY.set(Math.round(this.drawStartSvgY));
+    this.drawW.set(0);
+    this.drawH.set(0);
+
+    this.isDrawing.set(true);
+  }
+
+  private updateDraw(event: PointerEvent): void {
+    const deltaPxX = event.clientX - this.drawStartPointerX;
+    const deltaPxY = event.clientY - this.drawStartPointerY;
+    const deltaSvgX = deltaPxX * this.drawScale;
+    const deltaSvgY = deltaPxY * this.drawScale;
+
+    const currentSvgX = this.drawStartSvgX + deltaSvgX;
+    const currentSvgY = this.drawStartSvgY + deltaSvgY;
+
+    // Build a rectangle spanning startPoint and currentPoint regardless
+    // of drag direction. min() picks the topmost-leftmost corner;
+    // Math.abs() gives the magnitude. Snap to whole feet.
+    const x = Math.round(Math.min(this.drawStartSvgX, currentSvgX));
+    const y = Math.round(Math.min(this.drawStartSvgY, currentSvgY));
+    const w = Math.round(Math.abs(currentSvgX - this.drawStartSvgX));
+    const h = Math.round(Math.abs(currentSvgY - this.drawStartSvgY));
+
+    this.drawX.set(x);
+    this.drawY.set(y);
+    this.drawW.set(w);
+    this.drawH.set(h);
+  }
+
+  private endDraw(): void {
+    const x = this.drawX();
+    const y = this.drawY();
+    const w = this.drawW();
+    const h = this.drawH();
+
+    this.isDrawing.set(false);
+
+    // Discard tiny accidental drags — must be at least 1 ft on each side
+    // to be a real garden. This also covers the "user shift-clicked but
+    // didn't drag" case where w and h would both be 0.
+    if (w < 1 || h < 1) return;
+
+    // Prompt for a name. Cancel or empty discards the draw.
+    const name = window.prompt('Name for the new garden:', '');
+    if (!name || !name.trim()) return;
+
+    this.drawComplete.emit({
+      name: name.trim(),
+      positionX: x,
+      positionY: y,
+      width: w,
+      height: h,
+    });
   }
 }

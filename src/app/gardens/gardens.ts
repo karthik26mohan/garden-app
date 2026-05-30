@@ -114,4 +114,37 @@ export class Gardens implements OnInit {
       );
     }
   }
+
+  /**
+   * Yard-map emitted a draw-complete (Shift+drag on grid → released →
+   * named). Persist the new garden and add it to the local list. Unlike
+   * box-change, we don't optimistically add a temp row here — the round
+   * trip is short and the user just released their mouse, so a tiny
+   * pause before the garden appears is acceptable. Avoids the user_id /
+   * temp-id complexity of an optimistic create.
+   */
+  async onDrawComplete(e: {
+    name: string;
+    positionX: number;
+    positionY: number;
+    width: number;
+    height: number;
+  }): Promise<void> {
+    try {
+      const created = await this.gardenService.create({
+        name: e.name,
+        position_x_ft: e.positionX,
+        position_y_ft: e.positionY,
+        width_ft: e.width,
+        height_ft: e.height,
+      });
+      // Prepend so the newest is at the top of the card list (matches
+      // GardenService.list's newest-first order).
+      this.gardens.update((list) => [created, ...list]);
+    } catch (err) {
+      this.errorMessage.set(
+        err instanceof Error ? err.message : 'Failed to create garden.',
+      );
+    }
+  }
 }

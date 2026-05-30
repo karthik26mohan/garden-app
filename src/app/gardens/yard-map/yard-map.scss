@@ -86,6 +86,14 @@
     &--se { cursor: se-resize; }
   }
 
+  &__draw-preview {
+    fill: rgba(21, 128, 61, 0.12);
+    stroke: var(--accent);
+    stroke-width: 0.15;
+    stroke-dasharray: 0.5 0.3;
+    pointer-events: none;
+  }
+
   &__label {
     fill: var(--text);
     font-size: 2px;

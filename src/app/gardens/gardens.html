@@ -22,6 +22,7 @@
   <app-yard-map
     [gardens]="gardens()"
     (boxChange)="onBoxChange($event)"
+    (drawComplete)="onDrawComplete($event)"
   />
 
   @if (loading()) {
