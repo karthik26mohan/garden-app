@@ -1,4 +1,39 @@
 <figure class="yard-map">
+  <!--
+    Zoom controls overlaid on top of the map. Buttons update the view
+    signals which the SVG's viewBox is bound to, so changes propagate
+    automatically.
+  -->
+  <div class="yard-map__controls">
+    <button
+      type="button"
+      class="yard-map__control"
+      (click)="zoomIn()"
+      aria-label="Zoom in"
+      title="Zoom in"
+    >
+      +
+    </button>
+    <button
+      type="button"
+      class="yard-map__control"
+      (click)="zoomOut()"
+      aria-label="Zoom out"
+      title="Zoom out"
+    >
+      −
+    </button>
+    <button
+      type="button"
+      class="yard-map__control"
+      (click)="fitAll()"
+      aria-label="Fit all gardens"
+      title="Fit all"
+    >
+      ⊡
+    </button>
+  </div>
+
   <svg
     #svgEl
     class="yard-map__svg"

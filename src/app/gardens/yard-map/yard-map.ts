@@ -110,6 +110,56 @@ export class YardMap {
     });
   }
 
+  // Zoom bounds, in feet of visible width/height. Below 5 ft is too zoomed
+  // in to navigate; above 500 ft is wider than any backyard would ever be.
+  private readonly minZoom = 5;
+  private readonly maxZoom = 500;
+
+  /**
+   * Zoom in or out by the given factor (e.g. 0.7 = zoom in to 70% of
+   * current view; 1.4 = zoom out to 140%). Keeps the center of the view
+   * fixed — without that, zooming would always drift toward the top-left.
+   *
+   * Clamps to minZoom / maxZoom so the view stays usable.
+   */
+  protected zoomBy(factor: number): void {
+    const currentW = this.viewWidth();
+    const currentH = this.viewHeight();
+    const newW = currentW * factor;
+    const newH = currentH * factor;
+
+    // Clamp on the new dimensions. We bail rather than partially-apply
+    // so the view stays at its last valid state.
+    if (newW < this.minZoom || newW > this.maxZoom) return;
+    if (newH < this.minZoom || newH > this.maxZoom) return;
+
+    // Current view center, in feet.
+    const centerX = this.viewX() + currentW / 2;
+    const centerY = this.viewY() + currentH / 2;
+
+    // New top-left = center minus half the new size.
+    this.viewX.set(centerX - newW / 2);
+    this.viewY.set(centerY - newH / 2);
+    this.viewWidth.set(newW);
+    this.viewHeight.set(newH);
+  }
+
+  protected zoomIn(): void {
+    this.zoomBy(1 / 1.4);
+  }
+
+  protected zoomOut(): void {
+    this.zoomBy(1.4);
+  }
+
+  /**
+   * Re-run the auto-fit logic to frame all gardens with padding.
+   * Re-uses the same algorithm as the initial load.
+   */
+  protected fitAll(): void {
+    this.fitToGardens(this.gardens());
+  }
+
   /**
    * Sets viewBox to fit all gardens with a padding margin. Enforces a
    * minimum view size so a single small garden doesn't zoom in so far
