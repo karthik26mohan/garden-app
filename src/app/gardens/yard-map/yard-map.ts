@@ -96,6 +96,16 @@ export class YardMap {
   // SVG units per screen pixel, captured at drag start.
   private dragScale = 1;
 
+  // Pan state — separate from garden-drag state so the two interactions
+  // don't interfere. isPanning is a signal because the template uses it
+  // for the cursor-changes-while-panning class binding.
+  protected isPanning = signal(false);
+  private panStartPointerX = 0;
+  private panStartPointerY = 0;
+  private panStartViewX = 0;
+  private panStartViewY = 0;
+  private panScale = 1;
+
   constructor() {
     // Auto-fit the view to the gardens ONCE on first non-empty load.
     // Guarded so drag-triggered parent updates (which re-set this.gardens
@@ -201,6 +211,11 @@ export class YardMap {
     const svg = this.svgRef()?.nativeElement;
     if (!svg) return;
 
+    // Stop the event from bubbling to the SVG, which has its own pan
+    // handler. Without this, clicking a garden would simultaneously start
+    // a garden drag AND a background pan.
+    event.stopPropagation();
+
     // setPointerCapture routes all subsequent events for this pointer to
     // the captured element until pointerup. Makes fast drags feel solid.
     (event.target as Element).setPointerCapture(event.pointerId);
@@ -255,5 +270,98 @@ export class YardMap {
         positionY: finalY,
       });
     }
+  }
+
+  // ── Wheel zoom ────────────────────────────────────────────────
+  // Ctrl+wheel (Windows/Linux) or Cmd+wheel (Mac) zooms the view,
+  // anchored at the cursor — i.e. the point under the cursor stays
+  // under the cursor as you zoom. Convention shared with Google Maps,
+  // Figma, and most map/diagram editors.
+
+  onWheel(event: WheelEvent): void {
+    // Plain wheel scrolls the page (default browser behavior).
+    // Modifier + wheel zooms the map.
+    if (!event.ctrlKey && !event.metaKey) return;
+
+    // Stop the browser's default zoom-the-whole-page behavior.
+    event.preventDefault();
+
+    const svg = this.svgRef()?.nativeElement;
+    if (!svg) return;
+
+    // deltaY > 0 = scroll down = zoom out; < 0 = scroll up = zoom in.
+    // 1.1 per wheel event gives smooth, finer-grained zoom than the
+    // 1.4 used by the buttons.
+    const factor = event.deltaY > 0 ? 1.1 : 1 / 1.1;
+    const newW = this.viewWidth() * factor;
+    const newH = this.viewHeight() * factor;
+
+    // Clamp — same bounds as the buttons.
+    if (newW < this.minZoom || newW > this.maxZoom) return;
+    if (newH < this.minZoom || newH > this.maxZoom) return;
+
+    // Cursor position as a fraction (0 to 1) of the SVG's screen size.
+    const rect = svg.getBoundingClientRect();
+    const fractionX = (event.clientX - rect.left) / rect.width;
+    const fractionY = (event.clientY - rect.top) / rect.height;
+
+    // What SVG coordinate is under the cursor RIGHT NOW (before zoom).
+    const cursorSvgX = this.viewX() + fractionX * this.viewWidth();
+    const cursorSvgY = this.viewY() + fractionY * this.viewHeight();
+
+    // Pick the new top-left so the cursor's SVG coordinate ends up at
+    // the same fractional screen position after the zoom. Algebraically:
+    //   newViewX + fractionX * newW = cursorSvgX
+    //   newViewX                    = cursorSvgX - fractionX * newW
+    this.viewX.set(cursorSvgX - fractionX * newW);
+    this.viewY.set(cursorSvgY - fractionY * newH);
+    this.viewWidth.set(newW);
+    this.viewHeight.set(newH);
+  }
+
+  // ── Pan handlers ──────────────────────────────────────────────
+  // Attached on the SVG element. Only fire when the click isn't on a
+  // garden rect — garden rects call event.stopPropagation() in their
+  // own pointerdown so the SVG handler doesn't see them.
+
+  onBackgroundPointerDown(event: PointerEvent): void {
+    const svg = this.svgRef()?.nativeElement;
+    if (!svg) return;
+
+    // Capture the pointer so move events keep coming to the SVG even
+    // when the cursor leaves it (fast panning past the canvas edge).
+    svg.setPointerCapture(event.pointerId);
+
+    // Pan uses the same pixel→SVG conversion as garden drag, with the
+    // CURRENT view width so the math stays right at any zoom level.
+    const rect = svg.getBoundingClientRect();
+    this.panScale = this.viewWidth() / rect.width;
+
+    this.panStartPointerX = event.clientX;
+    this.panStartPointerY = event.clientY;
+    this.panStartViewX = this.viewX();
+    this.panStartViewY = this.viewY();
+
+    this.isPanning.set(true);
+  }
+
+  onBackgroundPointerMove(event: PointerEvent): void {
+    if (!this.isPanning()) return;
+
+    const deltaPxX = event.clientX - this.panStartPointerX;
+    const deltaPxY = event.clientY - this.panStartPointerY;
+
+    const deltaSvgX = deltaPxX * this.panScale;
+    const deltaSvgY = deltaPxY * this.panScale;
+
+    // Inverted: dragging the background to the right shifts the viewBox
+    // origin to the LEFT (we're showing more of the leftward content
+    // because the world "moves" right under the hand).
+    this.viewX.set(this.panStartViewX - deltaSvgX);
+    this.viewY.set(this.panStartViewY - deltaSvgY);
+  }
+
+  onBackgroundPointerUp(_event: PointerEvent): void {
+    this.isPanning.set(false);
   }
 }

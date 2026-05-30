@@ -37,9 +37,15 @@
   <svg
     #svgEl
     class="yard-map__svg"
+    [class.yard-map__svg--panning]="isPanning()"
     [attr.viewBox]="viewBox()"
     preserveAspectRatio="xMidYMid meet"
     xmlns="http://www.w3.org/2000/svg"
+    (pointerdown)="onBackgroundPointerDown($event)"
+    (pointermove)="onBackgroundPointerMove($event)"
+    (pointerup)="onBackgroundPointerUp($event)"
+    (pointercancel)="onBackgroundPointerUp($event)"
+    (wheel)="onWheel($event)"
   >
     <!--
       Grid pattern: a 1×1 tile (1ft × 1ft) with an L-shaped line at the
