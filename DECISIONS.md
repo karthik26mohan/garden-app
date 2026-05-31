@@ -330,6 +330,33 @@
 
 ---
 
+## 12. Garden-relative coordinates for plants (scene-graph nesting)
+**Date:** 2026-05-28
+**Status:** Accepted
+
+**Context.** Plants belong to gardens (FK `garden_id`, RLS inherits from the parent garden). When rendering them on the yard map, each plant needs a position. Two coordinate spaces are plausible: relative to the yard (same space as gardens) or relative to the parent garden's top-left corner. The choice determines what happens when the user drags a garden — and whether the schema column names are about yard position or garden position.
+
+**Options considered.**
+- **Yard-relative** — plants store `position_x_ft` / `position_y_ft` in the same coordinate space as gardens. Simpler to render (no transform math). But the moment a garden moves, you have to update every plant in it to keep alignment. Either a transaction at the DB level, or a JS loop on the client, both of which are pure overhead.
+- **Garden-relative** — plants store coordinates relative to their parent garden's top-left corner. Rendering wraps each garden in a `<g transform="translate(x, y)">` element; plants inside use local coordinates. Moving a garden moves the entire `<g>`, which carries the plants automatically. Scene-graph nesting, the same pattern used by every floor-plan/design tool that supports grouping.
+- **Either, with a runtime conversion layer** — store one way, expose the other in the JS layer. Adds indirection for no architectural benefit. Rejected.
+
+**Decision.** Garden-relative coordinates. Schema columns: `position_x_ft`, `position_y_ft`, `diameter_ft`, all in feet, all measured from the parent garden's top-left corner. Plants render inside a per-garden `<g transform="translate(garden.x, garden.y)">` so the SVG itself does the coordinate translation at render time.
+
+**Why (in my own words).**
+*Hints to weave into your answer:*
+- *"Move the parent, children come along for free" is the entire reason scene-graph nesting exists. Rebuilding that logic in application code is reinventing a 30-year-old graphics primitive.*
+- *Stored coordinates stay meaningful even if the garden moves. A tomato at position (2, 3) within a garden is at (2, 3) regardless of where I drag the garden later — versus yard-relative coords, where the tomato's stored numbers would have to change every time the garden moves, with no semantic meaning beyond "current world position."*
+- *Diameter (not radius or width/height) matches how gardeners describe plant size. "Max width" is the spec sheet number, and a plant top-down is approximately circular. Storing diameter avoids a mental divide-by-2 every time a user picks a value.*
+
+**Tradeoffs / what we're giving up.**
+*Hints:*
+- *Rendering requires a transform per garden. Trivial in SVG (`<g transform="translate(x, y)">`), but it's a small concept the editor has to internalize. We were going to add per-garden `<g>` groups anyway for styling reasons, so the transform is free.*
+- *If we ever want a "view all plants across all gardens" query (e.g. "how many tomatoes do I have anywhere"), we have to think in garden+plant coordinates, not absolute. Not a real problem until that view exists — and even then, the answer is just "join to gardens to know the parent's position."*
+- *Circles can't represent the actual shape of irregular plants (a vine, a hedge). Limitation acknowledged; rectangular or path-based shapes are a possible future graduation. For MVP, circles + diameter is the right abstraction.*
+
+---
+
 ## How to use this going forward
 
 Whenever Claude and I make a non-obvious choice, Claude scaffolds the **Context**, **Options**, and **Decision** sections; I rewrite the *italic hints* in my own words into the **Why** and **Tradeoffs** sections. Goal: by Day 10, every entry is in my voice, and I can riff on any of them for 60 seconds in an interview.

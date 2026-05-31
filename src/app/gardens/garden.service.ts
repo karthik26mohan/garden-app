@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { SupabaseService } from '../supabase.service';
+import { Plant } from './plant.service';
 
 /**
  * Shape of a row in the public.gardens table.
@@ -25,6 +26,15 @@ export interface Garden {
   height_ft: number;
   created_at: string;
   updated_at: string;
+
+  /**
+   * Plants in this garden. Optional because not every query returns them.
+   * Populated when GardenService.list() runs its eager-loading query
+   * (`select('*, plants(*)')`); absent when individual gardens are
+   * fetched without joining. Code that only needs garden fields can
+   * ignore this entirely.
+   */
+  plants?: Plant[];
 }
 
 /**
@@ -64,13 +74,22 @@ export class GardenService {
   private supabase = inject(SupabaseService);
 
   /**
-   * Fetch every garden the current user can see. Sorted newest-first so
-   * a freshly-created garden appears at the top of the list.
+   * Fetch every garden the current user can see, with their plants
+   * eager-loaded.
+   *
+   * The `select('*, plants(*)')` syntax is Supabase's foreign-key-driven
+   * embedding: "every column from gardens, plus an embedded array of
+   * every column from related plants rows." The plants array is included
+   * directly on each garden — one round trip, no N+1.
+   *
+   * RLS still filters both sides correctly: gardens_select_own filters
+   * the gardens; plants_select_via_garden filters the embedded plants.
+   * Sorted newest-first so a freshly-created garden appears at the top.
    */
   async list(): Promise<Garden[]> {
     const { data, error } = await this.supabase.client
       .from('gardens')
-      .select('*')
+      .select('*, plants(*)')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
