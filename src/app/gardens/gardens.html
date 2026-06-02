@@ -23,6 +23,7 @@
     [gardens]="gardens()"
     (boxChange)="onBoxChange($event)"
     (drawComplete)="onDrawComplete($event)"
+    (plantPositionChange)="onPlantPositionChange($event)"
   />
 
   @if (loading()) {

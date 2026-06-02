@@ -166,11 +166,19 @@
           GardenService.list); ?? [] handles the un-loaded case safely.
         -->
         @for (plant of (garden.plants ?? []); track plant.id) {
+          @let isDraggingPlant = draggingPlantId() === plant.id;
+          @let plantX = isDraggingPlant ? dragPlantX() : plant.position_x_ft;
+          @let plantY = isDraggingPlant ? dragPlantY() : plant.position_y_ft;
           <circle
-            [attr.cx]="plant.position_x_ft"
-            [attr.cy]="plant.position_y_ft"
+            [attr.cx]="plantX"
+            [attr.cy]="plantY"
             [attr.r]="plant.diameter_ft / 2"
             class="yard-map__plant"
+            [class.yard-map__plant--dragging]="isDraggingPlant"
+            (pointerdown)="onPlantPointerDown($event, plant)"
+            (pointermove)="onPlantPointerMove($event)"
+            (pointerup)="onPlantPointerUp($event)"
+            (pointercancel)="onPlantPointerUp($event)"
           />
         }
 

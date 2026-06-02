@@ -9,6 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { Garden } from '../garden.service';
+import { Plant } from '../plant.service';
 
 /** Which corner the user grabbed when starting a resize. */
 type Corner = 'nw' | 'ne' | 'sw' | 'se';
@@ -90,6 +91,17 @@ export class YardMap {
     height: number;
   }>();
 
+  /**
+   * Fires when a plant drag ends and its garden-local position changed.
+   * Parent should persist via PlantService.updatePosition and
+   * optimistically update the plant inside the nested gardens signal.
+   */
+  plantPositionChange = output<{
+    plantId: string;
+    positionX: number;
+    positionY: number;
+  }>();
+
   // View state — what region of the SVG is visible right now (in feet).
   // Defaults are a generic 50×50 view starting at the origin; auto-fit
   // overrides on first non-empty gardens input.
@@ -151,6 +163,17 @@ export class YardMap {
   // grab target at typical zoom levels (~12 actual pixels). Exposed so
   // the template can position the handles.
   protected readonly handleSize = 0.6;
+
+  // Plant drag state. Separate from garden drag so the two don't collide.
+  // Position is in GARDEN-LOCAL coordinates (the plant's cx/cy values).
+  protected draggingPlantId = signal<string | null>(null);
+  protected dragPlantX = signal(0);
+  protected dragPlantY = signal(0);
+  private dragPlantStartPointerX = 0;
+  private dragPlantStartPointerY = 0;
+  private dragPlantStartX = 0;
+  private dragPlantStartY = 0;
+  private dragPlantScale = 1;
 
   // Draw-new-garden state. Triggered by Shift+drag on the background.
   // Live preview signals so the template can render the in-progress
@@ -338,6 +361,62 @@ export class YardMap {
         positionY: finalY,
         width: garden.width_ft,
         height: garden.height_ft,
+      });
+    }
+  }
+
+  // ── Plant drag handlers ───────────────────────────────────────
+  // Same shape as garden drag, but the position being dragged is
+  // garden-local (the plant's cx/cy), not yard-relative.
+
+  onPlantPointerDown(event: PointerEvent, plant: Plant): void {
+    const svg = this.svgRef()?.nativeElement;
+    if (!svg) return;
+
+    // Stop propagation so the click doesn't ALSO start a garden drag
+    // (parent <rect>) or a background pan (SVG element).
+    event.stopPropagation();
+    (event.target as Element).setPointerCapture(event.pointerId);
+
+    const rect = svg.getBoundingClientRect();
+    this.dragPlantScale = this.viewWidth() / rect.width;
+
+    this.dragPlantStartPointerX = event.clientX;
+    this.dragPlantStartPointerY = event.clientY;
+    this.dragPlantStartX = plant.position_x_ft;
+    this.dragPlantStartY = plant.position_y_ft;
+
+    this.draggingPlantId.set(plant.id);
+    this.dragPlantX.set(plant.position_x_ft);
+    this.dragPlantY.set(plant.position_y_ft);
+  }
+
+  onPlantPointerMove(event: PointerEvent): void {
+    if (!this.draggingPlantId()) return;
+
+    const deltaPxX = event.clientX - this.dragPlantStartPointerX;
+    const deltaPxY = event.clientY - this.dragPlantStartPointerY;
+    const deltaSvgX = deltaPxX * this.dragPlantScale;
+    const deltaSvgY = deltaPxY * this.dragPlantScale;
+
+    this.dragPlantX.set(Math.round(this.dragPlantStartX + deltaSvgX));
+    this.dragPlantY.set(Math.round(this.dragPlantStartY + deltaSvgY));
+  }
+
+  onPlantPointerUp(_event: PointerEvent): void {
+    const id = this.draggingPlantId();
+    if (!id) return;
+
+    const finalX = this.dragPlantX();
+    const finalY = this.dragPlantY();
+
+    this.draggingPlantId.set(null);
+
+    if (finalX !== this.dragPlantStartX || finalY !== this.dragPlantStartY) {
+      this.plantPositionChange.emit({
+        plantId: id,
+        positionX: finalX,
+        positionY: finalY,
       });
     }
   }

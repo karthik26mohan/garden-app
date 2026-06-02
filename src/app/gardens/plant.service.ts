@@ -112,6 +112,28 @@ export class PlantService {
   }
 
   /**
+   * Update only the position fields of a plant. Used by the yard-map
+   * editor when the user drags a plant circle and releases. Separate
+   * from a full update method (which doesn't exist yet) so we don't
+   * need to thread the whole NewPlantInput through the drag handler.
+   *
+   * Coordinates are GARDEN-LOCAL (relative to the parent garden's
+   * top-left corner) — see DECISIONS.md Entry #12.
+   */
+  async updatePosition(
+    id: string,
+    positionX: number,
+    positionY: number,
+  ): Promise<void> {
+    const { error } = await this.supabase.client
+      .from('plants')
+      .update({ position_x_ft: positionX, position_y_ft: positionY })
+      .eq('id', id);
+
+    if (error) throw error;
+  }
+
+  /**
    * Delete a plant by id. No-op if the row doesn't exist or RLS hides it.
    * Same privacy semantics as gardens — caller can't distinguish "I
    * deleted it" from "it was never visible to me."

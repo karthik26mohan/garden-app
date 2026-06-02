@@ -9,6 +9,7 @@ import { DatePipe, isPlatformBrowser } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { SupabaseService } from '../supabase.service';
 import { Garden, GardenService } from './garden.service';
+import { PlantService } from './plant.service';
 import { YardMap } from './yard-map/yard-map';
 
 /**
@@ -31,6 +32,7 @@ import { YardMap } from './yard-map/yard-map';
 export class Gardens implements OnInit {
   private supabase = inject(SupabaseService);
   private gardenService = inject(GardenService);
+  private plantService = inject(PlantService);
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
 
@@ -144,6 +146,44 @@ export class Gardens implements OnInit {
     } catch (err) {
       this.errorMessage.set(
         err instanceof Error ? err.message : 'Failed to create garden.',
+      );
+    }
+  }
+
+  /**
+   * Yard-map emitted a plant drag-end. The plant lives inside one of the
+   * gardens in our local signal, so we mutate the nested array — find the
+   * garden containing the plant, then map its plants array to replace
+   * the moved plant's position. On error, revert the whole snapshot.
+   */
+  async onPlantPositionChange(e: {
+    plantId: string;
+    positionX: number;
+    positionY: number;
+  }): Promise<void> {
+    const previous = this.gardens();
+
+    this.gardens.update((list) =>
+      list.map((g) => ({
+        ...g,
+        plants: g.plants?.map((p) =>
+          p.id === e.plantId
+            ? { ...p, position_x_ft: e.positionX, position_y_ft: e.positionY }
+            : p,
+        ),
+      })),
+    );
+
+    try {
+      await this.plantService.updatePosition(
+        e.plantId,
+        e.positionX,
+        e.positionY,
+      );
+    } catch (err) {
+      this.gardens.set(previous);
+      this.errorMessage.set(
+        err instanceof Error ? err.message : 'Failed to save plant position.',
       );
     }
   }
