@@ -75,6 +75,13 @@
     stroke-width: 0.25;
   }
 
+  &__plant {
+    fill: rgba(101, 163, 13, 0.45);
+    stroke: #4d7c0f;
+    stroke-width: 0.05;
+    pointer-events: none;
+  }
+
   &__handle {
     fill: white;
     stroke: var(--accent);

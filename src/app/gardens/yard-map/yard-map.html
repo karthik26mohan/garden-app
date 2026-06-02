@@ -123,14 +123,23 @@
       @let y = isResizing ? resizeY() : isDragging ? dragY() : garden.position_y_ft;
       @let w = isResizing ? resizeW() : garden.width_ft;
       @let h = isResizing ? resizeH() : garden.height_ft;
+      <!--
+        transform="translate(x, y)" shifts the group's origin to (x, y),
+        so every child inside uses garden-local coordinates starting at
+        (0, 0). This is scene-graph nesting (DECISIONS.md Entry #12):
+        plants stored at garden-local (3, 5) render at yard (x+3, y+5)
+        because the transform handles the translation at render time.
+        Moving the garden = updating the transform = plants follow free.
+      -->
       <g
         class="yard-map__garden"
         [class.yard-map__garden--dragging]="isDragging"
         [class.yard-map__garden--resizing]="isResizing"
+        [attr.transform]="'translate(' + x + ' ' + y + ')'"
       >
         <rect
-          [attr.x]="x"
-          [attr.y]="y"
+          x="0"
+          y="0"
           [attr.width]="w"
           [attr.height]="h"
           class="yard-map__rect"
@@ -140,8 +149,8 @@
           (pointercancel)="onPointerUp($event)"
         />
         <text
-          [attr.x]="x + w / 2"
-          [attr.y]="y + h / 2"
+          [attr.x]="w / 2"
+          [attr.y]="h / 2"
           text-anchor="middle"
           dominant-baseline="middle"
           class="yard-map__label"
@@ -150,13 +159,28 @@
         </text>
 
         <!--
-          Four corner resize handles. Each is a small square centered on
-          a corner of the garden rect. Cursors hint at the resize axis;
-          the handler computes the new box with the OPPOSITE corner fixed.
+          Plants. Coordinates are GARDEN-LOCAL (relative to the parent
+          garden's top-left), so they live inside the transformed group
+          and don't need any per-plant offset math. r = diameter / 2.
+          garden.plants is optional (only present when eager-loaded by
+          GardenService.list); ?? [] handles the un-loaded case safely.
+        -->
+        @for (plant of (garden.plants ?? []); track plant.id) {
+          <circle
+            [attr.cx]="plant.position_x_ft"
+            [attr.cy]="plant.position_y_ft"
+            [attr.r]="plant.diameter_ft / 2"
+            class="yard-map__plant"
+          />
+        }
+
+        <!--
+          Four corner resize handles, in garden-local coords centered on
+          each corner of the garden rect (0,0)–(w,h).
         -->
         <rect
-          [attr.x]="x - handleSize / 2"
-          [attr.y]="y - handleSize / 2"
+          [attr.x]="-handleSize / 2"
+          [attr.y]="-handleSize / 2"
           [attr.width]="handleSize"
           [attr.height]="handleSize"
           class="yard-map__handle yard-map__handle--nw"
@@ -166,8 +190,8 @@
           (pointercancel)="onResizeEnd($event)"
         />
         <rect
-          [attr.x]="x + w - handleSize / 2"
-          [attr.y]="y - handleSize / 2"
+          [attr.x]="w - handleSize / 2"
+          [attr.y]="-handleSize / 2"
           [attr.width]="handleSize"
           [attr.height]="handleSize"
           class="yard-map__handle yard-map__handle--ne"
@@ -177,8 +201,8 @@
           (pointercancel)="onResizeEnd($event)"
         />
         <rect
-          [attr.x]="x - handleSize / 2"
-          [attr.y]="y + h - handleSize / 2"
+          [attr.x]="-handleSize / 2"
+          [attr.y]="h - handleSize / 2"
           [attr.width]="handleSize"
           [attr.height]="handleSize"
           class="yard-map__handle yard-map__handle--sw"
@@ -188,8 +212,8 @@
           (pointercancel)="onResizeEnd($event)"
         />
         <rect
-          [attr.x]="x + w - handleSize / 2"
-          [attr.y]="y + h - handleSize / 2"
+          [attr.x]="w - handleSize / 2"
+          [attr.y]="h - handleSize / 2"
           [attr.width]="handleSize"
           [attr.height]="handleSize"
           class="yard-map__handle yard-map__handle--se"

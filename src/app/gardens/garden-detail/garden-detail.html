@@ -1,0 +1,114 @@
+<main class="container">
+  <nav class="garden-detail__breadcrumb">
+    <a routerLink="/app/gardens">← Back to gardens</a>
+  </nav>
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (errorMessage() && !garden()) {
+    <p class="garden-detail__error">{{ errorMessage() }}</p>
+  } @else if (!garden()) {
+    <h1>Garden not found</h1>
+    <p>
+      Either it doesn't exist or it belongs to a different account.
+      <a routerLink="/app/gardens">Back to your gardens</a>.
+    </p>
+  } @else {
+    <header class="garden-detail__header">
+      <h1>{{ garden()!.name }}</h1>
+      <div class="garden-detail__actions">
+        <a
+          [routerLink]="['/app/gardens', id, 'edit']"
+          class="btn btn--secondary"
+        >
+          Edit
+        </a>
+        <button
+          type="button"
+          class="btn btn--danger"
+          [disabled]="deleting()"
+          (click)="onDelete()"
+        >
+          {{ deleting() ? 'Deleting…' : 'Delete' }}
+        </button>
+      </div>
+    </header>
+
+    @if (garden()!.description) {
+      <p>{{ garden()!.description }}</p>
+    }
+    <p class="garden-detail__meta">
+      Created {{ garden()!.created_at | date: 'mediumDate' }} ·
+      {{ garden()!.width_ft }} × {{ garden()!.height_ft }} ft
+    </p>
+
+    <!-- Inline error slot, shown for non-fatal errors (e.g. add-plant failure). -->
+    @if (errorMessage()) {
+      <p class="garden-detail__error">{{ errorMessage() }}</p>
+    }
+
+    <section class="garden-detail__plants">
+      <h2>Plants</h2>
+
+      @if (plants().length === 0) {
+        <p class="garden-detail__empty">No plants in this garden yet.</p>
+      } @else {
+        <ul class="garden-detail__plant-list">
+          @for (plant of plants(); track plant.id) {
+            <li class="garden-detail__plant">
+              <span class="garden-detail__plant-name">
+                {{ plant.common_name || '(unnamed)' }}
+              </span>
+              <span class="garden-detail__plant-size">
+                {{ plant.diameter_ft }} ft
+              </span>
+              <button
+                type="button"
+                class="btn btn--danger"
+                (click)="onDeletePlant(plant)"
+              >
+                Remove
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      <form
+        (ngSubmit)="onAddPlant()"
+        class="garden-detail__add-plant"
+      >
+        <label class="garden-detail__field">
+          <span>Name</span>
+          <input
+            type="text"
+            required
+            maxlength="80"
+            [ngModel]="newPlantName()"
+            (ngModelChange)="newPlantName.set($event)"
+            name="plantName"
+            placeholder="Tomato, basil, rosemary…"
+          />
+        </label>
+        <label class="garden-detail__field">
+          <span>Diameter (ft)</span>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            [ngModel]="newPlantDiameter()"
+            (ngModelChange)="newPlantDiameter.set($event)"
+            name="plantDiameter"
+          />
+        </label>
+        <button
+          type="submit"
+          class="btn btn--primary"
+          [disabled]="!newPlantName().trim() || addingPlant()"
+        >
+          {{ addingPlant() ? 'Adding…' : 'Add plant' }}
+        </button>
+      </form>
+    </section>
+  }
+</main>

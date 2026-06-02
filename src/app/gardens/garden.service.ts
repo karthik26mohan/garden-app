@@ -111,9 +111,12 @@ export class GardenService {
    * Any other error (network, real DB error) re-throws.
    */
   async get(id: string): Promise<Garden | null> {
+    // Same `select('*, plants(*)')` eager-loading as list() — see the
+    // comment there. Plants come back embedded on the returned garden,
+    // ready for the detail page to render without a second round trip.
     const { data, error } = await this.supabase.client
       .from('gardens')
-      .select('*')
+      .select('*, plants(*)')
       .eq('id', id)
       .single();
 

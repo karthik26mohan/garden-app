@@ -1,0 +1,127 @@
+.garden-detail {
+  &__breadcrumb {
+    margin-bottom: 1rem;
+
+    a {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-decoration: none;
+
+      &:hover { color: var(--accent); }
+    }
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+
+    h1 {
+      margin: 0;
+      font-size: 1.75rem;
+      font-weight: 600;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  &__error {
+    color: var(--danger);
+  }
+
+  &__meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  &__plants {
+    margin-top: 2rem;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+
+    h2 {
+      margin: 0 0 1rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+  }
+
+  &__empty {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin: 0 0 1rem;
+  }
+
+  &__plant-list {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__plant {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  &__plant-name {
+    font-weight: 500;
+  }
+
+  &__plant-size {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  &__add-plant {
+    display: grid;
+    grid-template-columns: 1fr 8rem auto;
+    gap: 0.75rem;
+    align-items: end;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  &__field {
+    display: block;
+
+    span {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: white;
+      box-sizing: border-box;
+
+      &:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.2);
+      }
+    }
+  }
+}
