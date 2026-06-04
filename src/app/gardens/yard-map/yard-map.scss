@@ -59,8 +59,10 @@
   }
 
   &__rect {
-    fill: rgba(21, 128, 61, 0.18);
-    stroke: var(--accent);
+    // Soil-brown fill + medium-brown stroke. Garden plots read as
+    // freshly-tilled dirt; plants (green) read as growing out of it.
+    fill: rgba(120, 80, 50, 0.25);
+    stroke: #8b6f47;
     stroke-width: 0.15;
     cursor: grab;
 
@@ -71,7 +73,7 @@
 
   &__garden--dragging &__rect,
   &__garden--resizing &__rect {
-    fill: rgba(21, 128, 61, 0.32);
+    fill: rgba(120, 80, 50, 0.45);
     stroke-width: 0.25;
   }
 
@@ -92,8 +94,10 @@
   }
 
   &__handle {
+    // Brown stroke to match the garden palette; white fill keeps the
+    // handle visually distinct against the soil tone.
     fill: white;
-    stroke: var(--accent);
+    stroke: #8b6f47;
     stroke-width: 0.1;
 
     &--nw { cursor: nw-resize; }
@@ -103,17 +107,23 @@
   }
 
   &__draw-preview {
-    fill: rgba(21, 128, 61, 0.12);
-    stroke: var(--accent);
+    fill: rgba(120, 80, 50, 0.15);
+    stroke: #8b6f47;
     stroke-width: 0.15;
     stroke-dasharray: 0.5 0.3;
     pointer-events: none;
   }
 
   &__label {
-    fill: var(--text);
-    font-size: 2px;
-    font-weight: 500;
+    // Tag-style label in the garden's top-left corner. Tiny and uppercase
+    // with letter-spacing for a designed feel; dark brown to tie it to
+    // the soil tone.
+    fill: #5c3a1f;
+    fill-opacity: 0.5;
+    font-size: 0.6px;
+    font-weight: 600;
+    letter-spacing: 0.03px;
+    text-transform: uppercase;
     pointer-events: none;
     user-select: none;
   }

@@ -149,10 +149,10 @@
           (pointercancel)="onPointerUp($event)"
         />
         <text
-          [attr.x]="w / 2"
-          [attr.y]="h / 2"
-          text-anchor="middle"
-          dominant-baseline="middle"
+          x="0.5"
+          y="0.5"
+          text-anchor="start"
+          dominant-baseline="hanging"
           class="yard-map__label"
         >
           {{ garden.name }}
