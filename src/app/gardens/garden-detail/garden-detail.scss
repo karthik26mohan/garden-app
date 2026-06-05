@@ -83,6 +83,19 @@
     font-weight: 500;
   }
 
+  &__plant-number {
+    display: inline-block;
+    min-width: 1.5rem;
+    padding: 0 0.35rem;
+    margin-right: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    color: #5c3a1f;
+    background: #f5e8d8;
+    border-radius: 4px;
+  }
+
   &__plant-size {
     font-size: 0.875rem;
     color: var(--text-muted);

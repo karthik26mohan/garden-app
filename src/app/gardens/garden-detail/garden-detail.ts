@@ -10,6 +10,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Garden, GardenService } from '../garden.service';
 import { Plant, PlantService } from '../plant.service';
+import { Species, SpeciesService } from '../species.service';
 
 /**
  * Garden detail page. Lives at /app/gardens/:id.
@@ -41,6 +42,7 @@ export class GardenDetail implements OnInit {
   private router = inject(Router);
   private gardenService = inject(GardenService);
   private plantService = inject(PlantService);
+  private speciesService = inject(SpeciesService);
   private platformId = inject(PLATFORM_ID);
 
   // The :id segment from the URL. snapshot is fine — Angular remounts this
@@ -50,6 +52,9 @@ export class GardenDetail implements OnInit {
 
   garden = signal<Garden | null>(null);
   plants = signal<Plant[]>([]);
+  // All species owned by the user — feeds the autocomplete <datalist>.
+  // Updated optimistically when ensureByName returns a new species.
+  allSpecies = signal<Species[]>([]);
   loading = signal(true);
   deleting = signal(false);
   errorMessage = signal<string | null>(null);
@@ -69,11 +74,17 @@ export class GardenDetail implements OnInit {
     }
 
     try {
-      const garden = await this.gardenService.get(this.id);
+      // Fetch garden+plants+species AND the species list in parallel.
+      // The species list is for the autocomplete dropdown; it's separate
+      // from the embedded species on plants (which only includes species
+      // for plants in THIS garden, not species used elsewhere).
+      const [garden, allSpecies] = await Promise.all([
+        this.gardenService.get(this.id),
+        this.speciesService.list(),
+      ]);
       this.garden.set(garden);
-      // garden.plants is populated by the eager-loading select in get().
-      // Default to empty if for some reason it's missing.
       this.plants.set(garden?.plants ?? []);
+      this.allSpecies.set(allSpecies);
     } catch (err) {
       this.errorMessage.set(
         err instanceof Error ? err.message : 'Failed to load garden.',
@@ -108,10 +119,14 @@ export class GardenDetail implements OnInit {
   }
 
   /**
-   * Create a plant in this garden. Defaults position to the center of
-   * the garden so the plant is visible inside the rectangle. Multiple
-   * plants stack at center until the user drags them apart in the yard
-   * map editor.
+   * Create a plant in this garden. Two-step flow:
+   *   1. SpeciesService.ensureByName resolves the typed name into a
+   *      species_id (finds existing or creates with next display_number).
+   *   2. PlantService.create inserts the plant with that species_id.
+   *
+   * After insert, we attach the species to the plant for local state
+   * (so the UI renders the name immediately) and, if the species was
+   * new, append it to allSpecies so the autocomplete dropdown updates.
    */
   async onAddPlant(): Promise<void> {
     if (!this.id) return;
@@ -125,14 +140,30 @@ export class GardenDetail implements OnInit {
     this.errorMessage.set(null);
 
     try {
+      // Step 1: resolve the typed name to a species (existing or new).
+      const species = await this.speciesService.ensureByName(name);
+
+      // Step 2: create the plant with the species_id.
       const created = await this.plantService.create({
         garden_id: this.id,
-        common_name: name,
+        species_id: species.id,
         diameter_ft: this.newPlantDiameter(),
         position_x_ft: garden.width_ft / 2,
         position_y_ft: garden.height_ft / 2,
       });
-      this.plants.update((list) => [...list, created]);
+
+      // Attach the species so the UI can render the name without
+      // refetching. The Supabase insert returns the plant row but
+      // doesn't auto-embed the relation.
+      const plantWithSpecies: Plant = { ...created, species };
+      this.plants.update((list) => [...list, plantWithSpecies]);
+
+      // If this is a brand-new species, add it to the autocomplete list
+      // so the dropdown picks it up immediately.
+      this.allSpecies.update((list) =>
+        list.find((s) => s.id === species.id) ? list : [...list, species],
+      );
+
       // Reset form for the next plant.
       this.newPlantName.set('');
       this.newPlantDiameter.set(1);

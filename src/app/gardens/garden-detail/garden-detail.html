@@ -57,7 +57,12 @@
           @for (plant of plants(); track plant.id) {
             <li class="garden-detail__plant">
               <span class="garden-detail__plant-name">
-                {{ plant.common_name || '(unnamed)' }}
+                @if (plant.species; as s) {
+                  <span class="garden-detail__plant-number">#{{ s.display_number }}</span>
+                  {{ s.common_name }}
+                } @else {
+                  {{ plant.common_name || '(unnamed)' }}
+                }
               </span>
               <span class="garden-detail__plant-size">
                 {{ plant.diameter_ft }} ft
@@ -84,11 +89,23 @@
             type="text"
             required
             maxlength="80"
+            list="garden-detail-species"
             [ngModel]="newPlantName()"
             (ngModelChange)="newPlantName.set($event)"
             name="plantName"
             placeholder="Tomato, basil, rosemary…"
           />
+          <!--
+            HTML5 datalist powers the autocomplete dropdown. As the user
+            types, the browser filters these <option> elements and shows
+            matches. Picking one fills the input; typing a new value just
+            stays as typed (and triggers a new-species create on submit).
+          -->
+          <datalist id="garden-detail-species">
+            @for (species of allSpecies(); track species.id) {
+              <option [value]="species.common_name"></option>
+            }
+          </datalist>
         </label>
         <label class="garden-detail__field">
           <span>Diameter (ft)</span>

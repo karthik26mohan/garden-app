@@ -65,14 +65,15 @@ export interface Plant {
 }
 
 /**
- * Payload for creating a plant. garden_id is required (a plant must
- * belong to a garden); everything else is optional and falls back to
- * schema defaults or null.
+ * Payload for creating a plant. Both garden_id and species_id are
+ * required: a plant must belong to a garden, and after the V1 species
+ * migration its name lives on the parent species. Callers should call
+ * SpeciesService.ensureByName(...) first to resolve a typed name into a
+ * species_id, then pass that here.
  */
 export interface NewPlantInput {
   garden_id: string;
-  common_name?: string;
-  scientific_name?: string;
+  species_id: string;
   notes?: string;
   position_x_ft?: number;
   position_y_ft?: number;
@@ -112,8 +113,7 @@ export class PlantService {
       .insert({
         garden_id: input.garden_id,
         added_by_user_id: user.id,
-        common_name: input.common_name ?? null,
-        scientific_name: input.scientific_name ?? null,
+        species_id: input.species_id,
         notes: input.notes ?? null,
         ...(input.position_x_ft !== undefined && {
           position_x_ft: input.position_x_ft,
