@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { SupabaseService } from '../supabase.service';
+import { Species } from './species.service';
 
 /**
  * Shape of a row in the public.plants table.
@@ -26,6 +27,12 @@ export interface Plant {
   garden_id: string;
   added_by_user_id: string;
 
+  /**
+   * Legacy free-text name. After the V1 species migration, plants point
+   * at a `species_id` instead; this column is kept temporarily as a
+   * fallback so the UI doesn't break during the V2/V3 transition. A
+   * future migration will drop it once the app fully reads via species.
+   */
   common_name: string | null;
   scientific_name: string | null;
   inaturalist_taxon_id: number | null;
@@ -37,6 +44,20 @@ export interface Plant {
   position_x_ft: number;
   position_y_ft: number;
   diameter_ft: number;
+
+  /**
+   * FK to the parent species row. Source of truth for the plant's name
+   * (canonical common_name + display_number live on the species). Optional
+   * because legacy rows from before V1 may still have NULL here.
+   */
+  species_id: string | null;
+
+  /**
+   * Eager-loaded species data when queries use the nested-select pattern
+   * (e.g. GardenService.list eager-loads gardens → plants → species).
+   * Absent when the query didn't ask for it.
+   */
+  species?: Species;
 
   identified_at: string;
   created_at: string;

@@ -87,9 +87,12 @@ export class GardenService {
    * Sorted newest-first so a freshly-created garden appears at the top.
    */
   async list(): Promise<Garden[]> {
+    // The select string is nested-nested: gardens → plants → species.
+    // Each plant comes back with its species embedded, ready to render
+    // numbers in the yard map without a second round trip.
     const { data, error } = await this.supabase.client
       .from('gardens')
-      .select('*, plants(*)')
+      .select('*, plants(*, species(*))')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -111,12 +114,11 @@ export class GardenService {
    * Any other error (network, real DB error) re-throws.
    */
   async get(id: string): Promise<Garden | null> {
-    // Same `select('*, plants(*)')` eager-loading as list() — see the
-    // comment there. Plants come back embedded on the returned garden,
-    // ready for the detail page to render without a second round trip.
+    // Same nested-nested eager-load as list() — see the comment there.
+    // Each plant comes back with its species embedded.
     const { data, error } = await this.supabase.client
       .from('gardens')
-      .select('*, plants(*)')
+      .select('*, plants(*, species(*))')
       .eq('id', id)
       .single();
 

@@ -357,6 +357,34 @@
 
 ---
 
+## 13. Species as a first-class entity (not derived from plant names)
+**Date:** 2026-05-29
+**Status:** Accepted
+
+**Context.** Plants need a per-user "species" concept for two related features: an autocomplete dropdown when adding a plant ("did you mean Rose, or is this a new species?") and a numbered legend in the yard map (every Rose shows "1" in its circle; legend says "1 = Rose"). The numbers have to stay stable across plant deletions — if I delete my only Rose and re-add one later, it should still be "1," not get renumbered to whatever-the-next-free-number-is. Two architectures fit the requirement:
+
+**Options considered.**
+- **Derived (no schema change)** — keep plants' free-text `common_name`. At read time, group by trimmed-lowercase name, compute numbers from current state. Autocomplete pulls `DISTINCT common_name` from existing plants.
+- **Species as a table** — new `species` table per user, plants reference it via `species_id` FK. Numbers persist on the species row, not derived from plants. Autocomplete pulls from `species`.
+- **Species cache table** — middle ground: a per-user "species seen" log that gets appended to but never derived from current plants. Effectively the same as a real species table but without the FK relationship.
+
+**Decision.** Species as a real table with `(id, user_id, common_name, scientific_name, display_number, created_at, updated_at)`. Plants reference it via `species_id`. Two unique indexes enforce integrity at the DB layer: `(user_id, lower(trim(common_name)))` prevents duplicate species per user; `(user_id, display_number)` keeps numbers unique. Species delete cascades to delete its plants (the user is explicitly saying "I never want this in my list again").
+
+**Why (in my own words).**
+*Hints to weave into your answer:*
+- *The derived approach falls apart on the stability requirement. The moment you delete the last plant of a species, the species disappears from the derived list, and the next time you add one, it'd get a fresh number. Defeats the point of having numbers as a stable identifier.*
+- *Once you accept that the species's "number" needs persistence, the species itself needs persistence. A row that outlives its plants is the natural model.*
+- *The schema constraints (case-insensitive uniqueness on name; uniqueness on number) push integrity into Postgres where it belongs. Application code doesn't have to defensively check "did someone else create a species with the same name?" — the database refuses the duplicate.*
+- *Pl@ntNet integration later gets cleaner too: when we identify a plant, the scientific_name lands on the species, not on each plant. Every plant of that species gets the identification for free.*
+
+**Tradeoffs / what we're giving up.**
+*Hints:*
+- *Three-way joins for the yard-map fetch: gardens → plants → species. Fine at this scale; would need rethinking only at thousands of species per user (never happens for a personal garden tracker).*
+- *Plant create flow is two-step now: ensure a species exists for the typed/picked name, then insert the plant with species_id. Autocomplete UX has to handle "type new" and "pick existing" cleanly.*
+- *"Empty species" possible — deleted the last plant but kept the species so the number stays. Adds a manage-species concept (or accept that the legend can show species with zero plants until the user explicitly removes them).*
+
+---
+
 ## How to use this going forward
 
 Whenever Claude and I make a non-obvious choice, Claude scaffolds the **Context**, **Options**, and **Decision** sections; I rewrite the *italic hints* in my own words into the **Why** and **Tradeoffs** sections. Goal: by Day 10, every entry is in my voice, and I can riff on any of them for 60 seconds in an interview.
