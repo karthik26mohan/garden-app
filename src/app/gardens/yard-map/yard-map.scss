@@ -93,6 +93,15 @@
     }
   }
 
+  &__plant-number {
+    // Dark olive on lime — high contrast for the species number.
+    // pointer-events: none so clicks pass through to the circle for drag.
+    fill: #365314;
+    font-weight: 700;
+    pointer-events: none;
+    user-select: none;
+  }
+
   &__handle {
     // Brown stroke to match the garden palette; white fill keeps the
     // handle visually distinct against the soil tone.

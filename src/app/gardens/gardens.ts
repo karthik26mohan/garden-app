@@ -1,5 +1,6 @@
 import {
   Component,
+  computed,
   inject,
   OnInit,
   PLATFORM_ID,
@@ -10,7 +11,9 @@ import { Router, RouterLink } from '@angular/router';
 import { SupabaseService } from '../supabase.service';
 import { Garden, GardenService } from './garden.service';
 import { PlantService } from './plant.service';
+import { Species } from './species.service';
 import { YardMap } from './yard-map/yard-map';
+import { SpeciesLegend } from './species-legend/species-legend';
 
 /**
  * Garden list page. Lives at /app/gardens.
@@ -25,7 +28,7 @@ import { YardMap } from './yard-map/yard-map';
  */
 @Component({
   selector: 'app-gardens',
-  imports: [RouterLink, DatePipe, YardMap],
+  imports: [RouterLink, DatePipe, YardMap, SpeciesLegend],
   templateUrl: './gardens.html',
   styleUrl: './gardens.scss',
 })
@@ -42,6 +45,24 @@ export class Gardens implements OnInit {
   gardens = signal<Garden[]>([]);
   loading = signal(true);
   errorMessage = signal<string | null>(null);
+
+  /**
+   * Unique species currently present in any of the user's gardens.
+   * Computed from gardens.plants.species; deduplicates by species.id.
+   * Re-runs only when the gardens signal actually changes — so drag and
+   * add events that mutate the signal cascade through here cheaply.
+   */
+  visibleSpecies = computed<Species[]>(() => {
+    const seen = new Map<string, Species>();
+    for (const garden of this.gardens()) {
+      for (const plant of garden.plants ?? []) {
+        if (plant.species && !seen.has(plant.species.id)) {
+          seen.set(plant.species.id, plant.species);
+        }
+      }
+    }
+    return Array.from(seen.values());
+  });
 
   async ngOnInit(): Promise<void> {
     if (!isPlatformBrowser(this.platformId)) {

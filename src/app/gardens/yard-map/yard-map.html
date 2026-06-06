@@ -180,6 +180,22 @@
             (pointerup)="onPlantPointerUp($event)"
             (pointercancel)="onPlantPointerUp($event)"
           />
+          <!--
+            Species display_number inside the circle. Font size scales
+            with the plant's diameter so the number stays proportional
+            at any zoom level. Falls back to "?" for legacy plants that
+            don't yet have a species_id assigned.
+          -->
+          <text
+            [attr.x]="plantX"
+            [attr.y]="plantY"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            [attr.font-size]="plant.diameter_ft * 0.5"
+            class="yard-map__plant-number"
+          >
+            {{ plant.species?.display_number ?? '?' }}
+          </text>
         }
 
         <!--

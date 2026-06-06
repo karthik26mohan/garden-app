@@ -1,0 +1,35 @@
+<aside class="species-legend">
+  <header class="species-legend__header">
+    <h3>Plants in your yard</h3>
+    <button
+      type="button"
+      class="species-legend__sort-btn"
+      (click)="toggleSort()"
+      [title]="
+        sortMode() === 'number'
+          ? 'Sorted by number — click for alphabetical'
+          : 'Sorted A→Z — click for by number'
+      "
+    >
+      Sort: {{ sortMode() === 'number' ? '#' : 'A→Z' }}
+    </button>
+  </header>
+
+  @if (sortedSpecies().length === 0) {
+    <p class="species-legend__empty">No plants yet. Add one from a garden.</p>
+  } @else {
+    <ul class="species-legend__list">
+      @for (s of sortedSpecies(); track s.id) {
+        <li class="species-legend__item">
+          <span class="species-legend__number">{{ s.display_number }}</span>
+          <span class="species-legend__name">{{ s.common_name }}</span>
+          @if (s.scientific_name) {
+            <span class="species-legend__scientific">
+              {{ s.scientific_name }}
+            </span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</aside>

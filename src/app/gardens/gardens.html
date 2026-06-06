@@ -26,6 +26,8 @@
     (plantPositionChange)="onPlantPositionChange($event)"
   />
 
+  <app-species-legend [species]="visibleSpecies()" />
+
   @if (loading()) {
     <p class="gardens__status">Loading…</p>
   } @else if (errorMessage()) {
