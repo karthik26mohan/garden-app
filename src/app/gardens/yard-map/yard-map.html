@@ -2,9 +2,20 @@
   <!--
     Zoom controls overlaid on top of the map. Buttons update the view
     signals which the SVG's viewBox is bound to, so changes propagate
-    automatically.
+    automatically. In edit mode, a "Done" button appears at the top of
+    the stack.
   -->
   <div class="yard-map__controls">
+    @if (editingGardenId() !== null) {
+      <button
+        type="button"
+        class="yard-map__control yard-map__control--done"
+        (click)="exitEditMode()"
+        title="Done editing (Esc)"
+      >
+        Done
+      </button>
+    }
     <button
       type="button"
       class="yard-map__control"
@@ -136,6 +147,7 @@
         [class.yard-map__garden--dragging]="isDragging"
         [class.yard-map__garden--resizing]="isResizing"
         [attr.transform]="'translate(' + x + ' ' + y + ')'"
+        (contextmenu)="onGardenContextMenu($event, garden)"
       >
         <rect
           x="0"
@@ -143,6 +155,7 @@
           [attr.width]="w"
           [attr.height]="h"
           class="yard-map__rect"
+          [class.yard-map__rect--editing]="editingGardenId() === garden.id"
           (pointerdown)="onPointerDown($event, garden)"
           (pointermove)="onPointerMove($event)"
           (pointerup)="onPointerUp($event)"
@@ -200,57 +213,83 @@
 
         <!--
           Four corner resize handles, in garden-local coords centered on
-          each corner of the garden rect (0,0)–(w,h).
+          each corner of the garden rect (0,0)–(w,h). Only rendered when
+          this garden is the one in edit mode — view mode shows clean
+          rectangles with no UI chrome.
         -->
-        <rect
-          [attr.x]="-handleSize / 2"
-          [attr.y]="-handleSize / 2"
-          [attr.width]="handleSize"
-          [attr.height]="handleSize"
-          class="yard-map__handle yard-map__handle--nw"
-          (pointerdown)="onResizeStart($event, garden, 'nw')"
-          (pointermove)="onResizeMove($event)"
-          (pointerup)="onResizeEnd($event)"
-          (pointercancel)="onResizeEnd($event)"
-        />
-        <rect
-          [attr.x]="w - handleSize / 2"
-          [attr.y]="-handleSize / 2"
-          [attr.width]="handleSize"
-          [attr.height]="handleSize"
-          class="yard-map__handle yard-map__handle--ne"
-          (pointerdown)="onResizeStart($event, garden, 'ne')"
-          (pointermove)="onResizeMove($event)"
-          (pointerup)="onResizeEnd($event)"
-          (pointercancel)="onResizeEnd($event)"
-        />
-        <rect
-          [attr.x]="-handleSize / 2"
-          [attr.y]="h - handleSize / 2"
-          [attr.width]="handleSize"
-          [attr.height]="handleSize"
-          class="yard-map__handle yard-map__handle--sw"
-          (pointerdown)="onResizeStart($event, garden, 'sw')"
-          (pointermove)="onResizeMove($event)"
-          (pointerup)="onResizeEnd($event)"
-          (pointercancel)="onResizeEnd($event)"
-        />
-        <rect
-          [attr.x]="w - handleSize / 2"
-          [attr.y]="h - handleSize / 2"
-          [attr.width]="handleSize"
-          [attr.height]="handleSize"
-          class="yard-map__handle yard-map__handle--se"
-          (pointerdown)="onResizeStart($event, garden, 'se')"
-          (pointermove)="onResizeMove($event)"
-          (pointerup)="onResizeEnd($event)"
-          (pointercancel)="onResizeEnd($event)"
-        />
+        @if (editingGardenId() === garden.id) {
+          <rect
+            [attr.x]="-handleSize / 2"
+            [attr.y]="-handleSize / 2"
+            [attr.width]="handleSize"
+            [attr.height]="handleSize"
+            class="yard-map__handle yard-map__handle--nw"
+            (pointerdown)="onResizeStart($event, garden, 'nw')"
+            (pointermove)="onResizeMove($event)"
+            (pointerup)="onResizeEnd($event)"
+            (pointercancel)="onResizeEnd($event)"
+          />
+          <rect
+            [attr.x]="w - handleSize / 2"
+            [attr.y]="-handleSize / 2"
+            [attr.width]="handleSize"
+            [attr.height]="handleSize"
+            class="yard-map__handle yard-map__handle--ne"
+            (pointerdown)="onResizeStart($event, garden, 'ne')"
+            (pointermove)="onResizeMove($event)"
+            (pointerup)="onResizeEnd($event)"
+            (pointercancel)="onResizeEnd($event)"
+          />
+          <rect
+            [attr.x]="-handleSize / 2"
+            [attr.y]="h - handleSize / 2"
+            [attr.width]="handleSize"
+            [attr.height]="handleSize"
+            class="yard-map__handle yard-map__handle--sw"
+            (pointerdown)="onResizeStart($event, garden, 'sw')"
+            (pointermove)="onResizeMove($event)"
+            (pointerup)="onResizeEnd($event)"
+            (pointercancel)="onResizeEnd($event)"
+          />
+          <rect
+            [attr.x]="w - handleSize / 2"
+            [attr.y]="h - handleSize / 2"
+            [attr.width]="handleSize"
+            [attr.height]="handleSize"
+            class="yard-map__handle yard-map__handle--se"
+            (pointerdown)="onResizeStart($event, garden, 'se')"
+            (pointermove)="onResizeMove($event)"
+            (pointerup)="onResizeEnd($event)"
+            (pointercancel)="onResizeEnd($event)"
+          />
+        }
       </g>
     }
   </svg>
   <figcaption class="yard-map__legend">
-    1 square = 1 ft · drag a garden to reposition · Shift+drag on the grid
+    1 square = 1 ft · right-click a garden to edit · Shift+drag on the grid
     to add a new garden
   </figcaption>
+
+  <!--
+    Custom context menu, shown when the user right-clicks a garden.
+    Positioned via fixed coords from the original click event. Stays
+    inside the figure but uses position:fixed so it's relative to the
+    viewport, not the figure.
+  -->
+  @if (contextMenu(); as menu) {
+    <div
+      class="yard-map__context-menu"
+      [style.left.px]="menu.x"
+      [style.top.px]="menu.y"
+    >
+      <button
+        type="button"
+        class="yard-map__context-menu-item"
+        (click)="onContextMenuEdit($event)"
+      >
+        Edit garden
+      </button>
+    </div>
+  }
 </figure>

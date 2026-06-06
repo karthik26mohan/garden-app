@@ -39,6 +39,23 @@
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
+
+    // The "Done" button is wider (holds a word, not a single glyph) and
+    // visually stands out as the primary exit action during edit mode.
+    &--done {
+      width: auto;
+      padding: 0 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+
+      &:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+      }
+    }
   }
 
   &__svg {
@@ -64,10 +81,15 @@
     fill: rgba(120, 80, 50, 0.25);
     stroke: #8b6f47;
     stroke-width: 0.15;
-    cursor: grab;
+    cursor: pointer; // view mode = clickable affordance, not draggable
 
-    &:active {
-      cursor: grabbing;
+    // In edit mode, the focused garden's rect becomes draggable.
+    &--editing {
+      cursor: grab;
+
+      &:active {
+        cursor: grabbing;
+      }
     }
   }
 
@@ -142,5 +164,38 @@
     font-size: 0.75rem;
     color: var(--text-muted);
     text-align: center;
+  }
+
+  &__context-menu {
+    position: fixed;
+    z-index: 100;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    padding: 0.25rem 0;
+    min-width: 10rem;
+  }
+
+  &__context-menu-item {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: var(--text);
+
+    &:hover {
+      background: #f5f5f4;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
   }
 }

@@ -3,6 +3,7 @@ import {
   ElementRef,
   computed,
   effect,
+  HostListener,
   input,
   output,
   signal,
@@ -164,6 +165,27 @@ export class YardMap {
   // the template can position the handles.
   protected readonly handleSize = 0.6;
 
+  /**
+   * View/edit mode state. null = view mode (no handles, no drag); a
+   * garden id = edit mode for that garden (handles + drag enabled for
+   * it, viewBox zoomed to focus on it). Only one garden is in edit mode
+   * at a time. See DECISIONS Entry #11 follow-up — the goal is to
+   * separate "look at the yard" from "work on this one garden."
+   */
+  protected editingGardenId = signal<string | null>(null);
+
+  /**
+   * Context menu state. null = closed. Object = open at the given
+   * viewport coordinates for the given garden. Set by right-click on a
+   * garden, cleared by any left-click (HostListener below) or by the
+   * menu item firing.
+   */
+  protected contextMenu = signal<{
+    x: number;
+    y: number;
+    gardenId: string;
+  } | null>(null);
+
   // Plant drag state. Separate from garden drag so the two don't collide.
   // Position is in GARDEN-LOCAL coordinates (the plant's cx/cy values).
   protected draggingPlantId = signal<string | null>(null);
@@ -254,6 +276,85 @@ export class YardMap {
     this.fitToGardens(this.gardens());
   }
 
+  // ── Edit-mode entry / exit ────────────────────────────────────
+
+  /**
+   * Enter edit mode for a garden. Triggered by the right-click context
+   * menu's "Edit garden" item. ViewBox snaps to fit just that garden +
+   * padding.
+   */
+  protected enterEditMode(garden: Garden): void {
+    this.editingGardenId.set(garden.id);
+    this.fitToGardens([garden]);
+  }
+
+  /**
+   * Exit edit mode and return to a fit-all view of the whole yard.
+   * Triggered by the Done button or the Escape key.
+   */
+  protected exitEditMode(): void {
+    this.editingGardenId.set(null);
+    this.fitToGardens(this.gardens());
+  }
+
+  /**
+   * Right-click on a garden's group opens our custom context menu at
+   * the cursor position. preventDefault suppresses the browser's native
+   * menu; stopPropagation keeps the click from triggering any parent
+   * handlers (like the pan handler on the SVG).
+   */
+  protected onGardenContextMenu(event: MouseEvent, garden: Garden): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.contextMenu.set({
+      x: event.clientX,
+      y: event.clientY,
+      gardenId: garden.id,
+    });
+  }
+
+  /**
+   * Triggered by the "Edit garden" item in the context menu. Looks up
+   * the garden by id (we stored only the id, not a reference) and
+   * enters edit mode.
+   */
+  protected onContextMenuEdit(event: Event): void {
+    event.stopPropagation();
+    const ctx = this.contextMenu();
+    if (!ctx) return;
+    const garden = this.gardens().find((g) => g.id === ctx.gardenId);
+    if (garden) this.enterEditMode(garden);
+    this.contextMenu.set(null);
+  }
+
+  /**
+   * Escape key exits edit mode if we're in it, OR closes the context
+   * menu. Two-purpose because Escape is the standard "back out" key.
+   */
+  @HostListener('document:keydown.escape')
+  handleEscape(): void {
+    if (this.contextMenu() !== null) {
+      this.contextMenu.set(null);
+      return;
+    }
+    if (this.editingGardenId() !== null) {
+      this.exitEditMode();
+    }
+  }
+
+  /**
+   * Any left-click anywhere on the document closes the context menu.
+   * Right-clicks fire `contextmenu`, not `click`, so they won't trigger
+   * this. The menu's own button handlers call stopPropagation so the
+   * click doesn't bubble up here and re-close while they're firing.
+   */
+  @HostListener('document:click')
+  handleDocumentClick(): void {
+    if (this.contextMenu() !== null) {
+      this.contextMenu.set(null);
+    }
+  }
+
   /**
    * Sets viewBox to fit all gardens with a padding margin. Enforces a
    * minimum view size so a single small garden doesn't zoom in so far
@@ -292,6 +393,12 @@ export class YardMap {
   }
 
   onPointerDown(event: PointerEvent, garden: Garden): void {
+    // View mode: garden drag is disabled. Don't stopPropagation either —
+    // we want pan to still work if the user drags from a garden rect in
+    // view mode. (They'll have to double-click first to enter edit mode
+    // to actually move the garden.)
+    if (this.editingGardenId() !== garden.id) return;
+
     const svg = this.svgRef()?.nativeElement;
     if (!svg) return;
 
@@ -370,6 +477,10 @@ export class YardMap {
   // garden-local (the plant's cx/cy), not yard-relative.
 
   onPlantPointerDown(event: PointerEvent, plant: Plant): void {
+    // View mode (or different garden in edit mode): plant drag disabled.
+    // Only plants inside the currently-edited garden can be moved.
+    if (this.editingGardenId() !== plant.garden_id) return;
+
     const svg = this.svgRef()?.nativeElement;
     if (!svg) return;
 
@@ -427,6 +538,10 @@ export class YardMap {
   // has four handles in the template, each pre-bound to its corner.
 
   onResizeStart(event: PointerEvent, garden: Garden, corner: Corner): void {
+    // Resize is only available in edit mode for this garden — handles
+    // shouldn't even be visible otherwise, but guard defensively.
+    if (this.editingGardenId() !== garden.id) return;
+
     const svg = this.svgRef()?.nativeElement;
     if (!svg) return;
 
