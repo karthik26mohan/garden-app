@@ -45,6 +45,9 @@ jobs:
             plantnet: {
               apiKey: 'placeholder-plantnet-key',
             },
+            perenual: {
+              apiKey: 'sk-qGHa6a24a07fe736418001',
+            },
           };
           EOF
 

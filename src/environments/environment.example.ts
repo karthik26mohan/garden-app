@@ -20,4 +20,9 @@ export const environment = {
   plantnet: {
     apiKey: 'YOUR-PLANTNET-API-KEY',
   },
+  perenual: {
+    // Get a free API key at https://perenual.com — free tier is 100/day.
+    // See DECISIONS.md Entry #14 for why we chose Perenual.
+    apiKey: 'sk-qGHa6a24a07fe736418001',
+  },
 };

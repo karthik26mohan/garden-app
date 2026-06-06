@@ -385,6 +385,37 @@
 
 ---
 
+## 14. Perenual API as the canonical plant species database
+**Date:** 2026-05-31
+**Status:** Accepted
+
+**Context.** The species feature we built in V1–V5 lets users type any free-text name for a plant. That's fine for organizing your own list, but it makes downstream features (height-based color coding, companion-planting AI suggestions, watering schedules) impossible without separate per-plant data entry — and it permits typos like "rsoe" or vague names like "my favorite flower" that have no semantic value. To unlock data-driven features, species need to be backed by a real plant database with authoritative metadata.
+
+**Options considered.**
+- **Perenual API** — purpose-built plant database with growing info (height, spread, watering, sunlight, hardiness). Free tier (100 calls/day) with paid escalation. Designed specifically for plant-tracker apps.
+- **iNaturalist taxa search** — free, no API key, academic-grade taxonomy. But no growing/dimension data — would need to cross-reference Wikipedia or Wikidata, which is fragile.
+- **LLM lookup (Claude or OpenAI)** — "what's the typical mature height of a Damask Rose?" Reliable for well-known plants, per-call cost (~$0.001), no autocomplete (would have to render results from the typed name without a search step).
+- **Hardcoded curated list** — bundle ~100 common plants as JSON. Works offline, no API dependency. Falls down for uncommon plants and never grows beyond what we ship.
+- **Trefle or open-source plant DB** — Trefle was the historical leader but has had reliability issues; the open-source community plant-DB scene is fragmented and uncurated.
+
+**Decision.** Perenual as the primary species database with all relevant metadata cached locally on the species row. LLM (Claude) as a fallback for "Perenual didn't find this plant" — generates the same shape of data so the UI doesn't care which source filled it.
+
+**Why (in my own words).**
+*Hints to weave into your answer:*
+- *Height data is the immediate need (drives color-coded visualization). Perenual is the only option where height is first-class — every other source requires stitching data together from multiple places. Single source of truth wins on engineering simplicity.*
+- *The free tier covers personal-app usage. 100 calls/day is plenty when results are cached on the species row forever — each species costs one Perenual call ever.*
+- *The broader plant metadata (watering, sunlight, hardiness zone) sets up future features. Even if we never build them, having the data shipped on day one is cheap insurance.*
+- *Falling back to an LLM for missing data means we never tell the user "we don't support this plant." Better UX than a hard fail.*
+
+**Tradeoffs / what we're giving up.**
+*Hints:*
+- *External API dependency. Perenual goes down → the add-plant flow degrades. Mitigated by caching: any plant the user has added before still has full data; only NEW species adds fail. We could degrade further to LLM, then to manual input.*
+- *Vendor lock-in. If Perenual shuts down or changes pricing, we'd need to swap. Mitigated by caching the full API response in `external_data jsonb` so historical data survives even if the API dies.*
+- *Closed taxonomy. Users can't enter random names anymore — only real species in Perenual's catalog. Mostly a feature; the rare "I have a hybrid that's not catalogued" case is the LLM-fallback or manual-input edge.*
+- *API key in client bundle (MVP) means a determined attacker could exfiltrate and use your quota. Same architectural smell as the Pl@ntNet key — a proper Supabase Edge Function proxy is the eventual fix; for portfolio-scale traffic, acceptable risk.*
+
+---
+
 ## How to use this going forward
 
 Whenever Claude and I make a non-obvious choice, Claude scaffolds the **Context**, **Options**, and **Decision** sections; I rewrite the *italic hints* in my own words into the **Why** and **Tradeoffs** sections. Goal: by Day 10, every entry is in my voice, and I can riff on any of them for 60 seconds in an interview.
