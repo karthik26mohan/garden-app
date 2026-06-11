@@ -126,6 +126,24 @@ describe('IdentifyPlant', () => {
     });
   });
 
+  it('runs identification from the file input change event', async () => {
+    plantIdMock.identify.mockResolvedValue(CANDIDATES);
+    const fixture = create();
+    const input = (fixture.nativeElement as HTMLElement).querySelector(
+      '.identify-plant__file-input',
+    ) as HTMLInputElement;
+
+    const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
+    Object.defineProperty(input, 'files', { value: [file] });
+    input.dispatchEvent(new Event('change'));
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    expect(photoMock.resizeImage).toHaveBeenCalledWith(file);
+    expect(input.value).toBe('');
+  });
+
   it('resets to idle when the user dismisses the results', async () => {
     plantIdMock.identify.mockResolvedValue(CANDIDATES);
     const fixture = create();

@@ -1,4 +1,4 @@
-import { Component, inject, output, signal } from '@angular/core';
+import { Component, computed, inject, output, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { PlantIdCandidate, PlantIdService } from '../plant-id.service';
 import { PhotoService } from '../photo.service';
@@ -44,10 +44,10 @@ export class IdentifyPlant {
   private photo: Blob | null = null;
 
   /** True when the top candidate is below 10% confidence. */
-  get lowConfidence(): boolean {
+  readonly lowConfidence = computed(() => {
     const top = this.candidates()[0];
     return !!top && top.score < 0.1;
-  }
+  });
 
   /** Template hook for the hidden file input's (change) event. */
   onFileInputChange(event: Event): void {

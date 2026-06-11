@@ -14,7 +14,7 @@
   }
 
   @if (state() === 'error') {
-    <p class="identify-plant__error">
+    <p class="identify-plant__error" role="alert">
       {{ errorMessage() }}
       <button type="button" class="identify-plant__dismiss" (click)="onDismiss()">
         Type a name instead
@@ -24,15 +24,15 @@
 
   @if (state() === 'results') {
     @if (candidates().length === 0) {
-      <p class="identify-plant__error">
+      <p class="identify-plant__error" role="alert">
         Sorry, we couldn&#39;t identify this photo.
         <button type="button" class="identify-plant__dismiss" (click)="onDismiss()">
           Type a name instead
         </button>
       </p>
     } @else {
-      <div class="identify-plant__candidates">
-        @if (lowConfidence) {
+      <div class="identify-plant__candidates" role="status">
+        @if (lowConfidence()) {
           <p class="identify-plant__low-confidence">
             Low confidence &mdash; these may not be right.
           </p>
