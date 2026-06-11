@@ -75,6 +75,8 @@ export interface NewPlantInput {
   garden_id: string;
   species_id: string;
   notes?: string;
+  /** Pl@ntNet confidence (0..1) when the plant came from photo identification. */
+  plantnet_score?: number;
   position_x_ft?: number;
   position_y_ft?: number;
   diameter_ft?: number;
@@ -124,6 +126,9 @@ export class PlantService {
         ...(input.diameter_ft !== undefined && {
           diameter_ft: input.diameter_ft,
         }),
+        ...(input.plantnet_score !== undefined && {
+          plantnet_score: input.plantnet_score,
+        }),
       })
       .select()
       .single();
@@ -141,11 +146,7 @@ export class PlantService {
    * Coordinates are GARDEN-LOCAL (relative to the parent garden's
    * top-left corner) — see DECISIONS.md Entry #12.
    */
-  async updatePosition(
-    id: string,
-    positionX: number,
-    positionY: number,
-  ): Promise<void> {
+  async updatePosition(id: string, positionX: number, positionY: number): Promise<void> {
     const { error } = await this.supabase.client
       .from('plants')
       .update({ position_x_ft: positionX, position_y_ft: positionY })
@@ -160,10 +161,7 @@ export class PlantService {
    * deleted it" from "it was never visible to me."
    */
   async delete(id: string): Promise<void> {
-    const { error } = await this.supabase.client
-      .from('plants')
-      .delete()
-      .eq('id', id);
+    const { error } = await this.supabase.client.from('plants').delete().eq('id', id);
 
     if (error) throw error;
   }
