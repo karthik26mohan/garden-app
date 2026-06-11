@@ -1,0 +1,94 @@
+.identify-plant {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+// The trigger is a <label> styled as a button; the real file input is
+// visually hidden but still focusable/clickable through the label.
+.identify-plant__trigger {
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.identify-plant__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.identify-plant__candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.identify-plant__candidate {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    border-color: var(--color-primary, #2e7d32);
+  }
+}
+
+.identify-plant__thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.identify-plant__names {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+
+  em {
+    font-style: italic;
+    opacity: 0.7;
+    font-size: 0.85em;
+  }
+}
+
+.identify-plant__score {
+  position: relative;
+  min-width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.identify-plant__score-bar {
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  height: 3px;
+  background: var(--color-primary, #2e7d32);
+  border-radius: 2px;
+}
+
+.identify-plant__low-confidence,
+.identify-plant__error {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--color-danger, #b00020);
+}
+
+.identify-plant__dismiss {
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9em;
+  align-self: flex-start;
+}

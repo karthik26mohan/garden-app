@@ -1,0 +1,64 @@
+<div class="identify-plant">
+  @if (state() === 'idle' || state() === 'identifying') {
+    <label class="identify-plant__trigger btn btn--secondary">
+      {{ state() === 'identifying' ? 'Identifying&hellip;' : '&#x1F4F7; Identify from photo' }}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        [disabled]="state() === 'identifying'"
+        (change)="onFileInputChange($event)"
+        class="identify-plant__file-input"
+      />
+    </label>
+  }
+
+  @if (state() === 'error') {
+    <p class="identify-plant__error">
+      {{ errorMessage() }}
+      <button type="button" class="identify-plant__dismiss" (click)="onDismiss()">
+        Type a name instead
+      </button>
+    </p>
+  }
+
+  @if (state() === 'results') {
+    @if (candidates().length === 0) {
+      <p class="identify-plant__error">
+        Sorry, we couldn&#39;t identify this photo.
+        <button type="button" class="identify-plant__dismiss" (click)="onDismiss()">
+          Type a name instead
+        </button>
+      </p>
+    } @else {
+      <div class="identify-plant__candidates">
+        @if (lowConfidence) {
+          <p class="identify-plant__low-confidence">
+            Low confidence &mdash; these may not be right.
+          </p>
+        }
+        @for (candidate of candidates(); track candidate.scientificName) {
+          <button type="button" class="identify-plant__candidate" (click)="onPick(candidate)">
+            @if (candidate.thumbnailUrl) {
+              <img [src]="candidate.thumbnailUrl" alt="" class="identify-plant__thumb" />
+            }
+            <span class="identify-plant__names">
+              <strong>{{ candidate.commonNames[0] || candidate.scientificName }}</strong>
+              <em>{{ candidate.scientificName }}</em>
+            </span>
+            <span class="identify-plant__score">
+              <span
+                class="identify-plant__score-bar"
+                [style.width.%]="candidate.score * 100"
+              ></span>
+              {{ candidate.score * 100 | number: '1.0-0' }}%
+            </span>
+          </button>
+        }
+        <button type="button" class="identify-plant__dismiss" (click)="onDismiss()">
+          None of these &mdash; type a name instead
+        </button>
+      </div>
+    }
+  }
+</div>
