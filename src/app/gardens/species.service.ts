@@ -1,5 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { SupabaseService } from '../supabase.service';
+import { PerenualService } from './perenual.service';
+import { PlantIdCandidate } from './plant-id.service';
 
 /**
  * Shape of a row in the public.species table.
@@ -24,6 +26,12 @@ export interface Species {
   display_number: number;
   created_at: string;
   updated_at: string;
+  /** 'perenual' | 'plantnet' | 'llm' | 'manual' — which system filled the external columns. */
+  external_source: string | null;
+  external_id: string | null;
+  height_ft_min: number | null;
+  height_ft_max: number | null;
+  external_data: unknown | null;
 }
 
 /**
@@ -40,6 +48,7 @@ export interface Species {
 @Injectable({ providedIn: 'root' })
 export class SpeciesService {
   private supabase = inject(SupabaseService);
+  private perenual = inject(PerenualService);
 
   /**
    * Return every species the current user has, sorted by display_number
@@ -87,9 +96,7 @@ export class SpeciesService {
     const { data: existing, error: selectError } = await this.supabase.client
       .from('species')
       .select('*')
-      .or(
-        `common_name.ilike.${normalized},scientific_name.ilike.${normalized}`,
-      )
+      .or(`common_name.ilike.${normalized},scientific_name.ilike.${normalized}`)
       .maybeSingle();
 
     if (selectError) throw selectError;
@@ -123,6 +130,91 @@ export class SpeciesService {
       .select()
       .single();
 
+    if (insertError) throw insertError;
+    return created as Species;
+  }
+
+  /**
+   * Resolve a Pl@ntNet identification into a species row — the
+   * photo-flow sibling of ensureByName. See the spec
+   * (docs/superpowers/specs/2026-06-10-photo-plant-identification-design.md
+   * section 4) for the find → enrich → create chain.
+   *
+   *   1. FIND: match the scientific name against scientific_name OR
+   *      common_name (case-insensitive). If found, return it —
+   *      backfilling scientific_name when the row predates
+   *      identification.
+   *   2. ENRICH: for a new species, ask Perenual for growing data
+   *      (best-effort; null on any failure).
+   *   3. CREATE: insert with the next display_number. external_source
+   *      records which system provided the data ('perenual' when the
+   *      lookup hit, 'plantnet' when we only have Pl@ntNet's names).
+   */
+  async ensureByIdentification(candidate: PlantIdCandidate): Promise<Species> {
+    const scientificName = candidate.scientificName.trim();
+    if (!scientificName) {
+      throw new Error('Candidate has no scientific name.');
+    }
+
+    // Step 1: find by scientific name in either name column.
+    const { data: existing, error: selectError } = await this.supabase.client
+      .from('species')
+      .select('*')
+      .or(`scientific_name.ilike.${scientificName},common_name.ilike.${scientificName}`)
+      .maybeSingle();
+    if (selectError) throw selectError;
+
+    if (existing) {
+      const found = existing as Species;
+      if (found.scientific_name) return found;
+
+      // Backfill: the species existed from a typed name; the photo
+      // identification just told us what it actually is.
+      const { data: updated, error: updateError } = await this.supabase.client
+        .from('species')
+        .update({ scientific_name: scientificName })
+        .eq('id', found.id)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+      return updated as Species;
+    }
+
+    // Step 2: enrich via Perenual (null = lookup failed or no match).
+    const perenualData = await this.perenual.searchByScientificName(scientificName);
+
+    // Step 3: create, same next-number pattern as ensureByName.
+    const {
+      data: { user },
+    } = await this.supabase.client.auth.getUser();
+    if (!user) throw new Error('Not signed in.');
+
+    const { data: maxRow, error: maxError } = await this.supabase.client
+      .from('species')
+      .select('display_number')
+      .order('display_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (maxError) throw maxError;
+    const nextNumber = (maxRow?.display_number ?? 0) + 1;
+
+    const { data: created, error: insertError } = await this.supabase.client
+      .from('species')
+      .insert({
+        user_id: user.id,
+        common_name: candidate.commonNames[0] ?? scientificName,
+        scientific_name: scientificName,
+        display_number: nextNumber,
+        external_source: perenualData ? 'perenual' : 'plantnet',
+        ...(perenualData && {
+          external_id: perenualData.externalId,
+          height_ft_min: perenualData.heightFtMin,
+          height_ft_max: perenualData.heightFtMax,
+          external_data: perenualData.raw,
+        }),
+      })
+      .select()
+      .single();
     if (insertError) throw insertError;
     return created as Species;
   }
