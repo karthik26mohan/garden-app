@@ -22,6 +22,7 @@ export class PlantIdError extends Error {
     readonly status: number,
   ) {
     super(message);
+    this.name = 'PlantIdError';
   }
 }
 
@@ -83,7 +84,12 @@ export class PlantIdService {
     form.append('organs', 'auto');
 
     const url = `${IDENTIFY_URL}?api-key=${encodeURIComponent(environment.plantnet.apiKey)}`;
-    const res = await fetch(url, { method: 'POST', body: form });
+    let res: Response;
+    try {
+      res = await fetch(url, { method: 'POST', body: form });
+    } catch {
+      throw new PlantIdError('Could not reach the plant identification service.', 0);
+    }
 
     if (!res.ok) {
       // 404 = "species not found" for identify — treat as no candidates.
@@ -95,6 +101,12 @@ export class PlantIdService {
       throw new PlantIdError(message, res.status);
     }
 
-    return mapPlantNetResponse(await res.json());
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      throw new PlantIdError('Could not reach the plant identification service.', 0);
+    }
+    return mapPlantNetResponse(json);
   }
 }

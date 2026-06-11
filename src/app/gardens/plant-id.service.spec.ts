@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { mapPlantNetResponse, PlantIdCandidate, PlantIdError, PlantIdService } from './plant-id.service';
+import {
+  mapPlantNetResponse,
+  PlantIdCandidate,
+  PlantIdError,
+  PlantIdService,
+} from './plant-id.service';
 
 /** A realistic trimmed Pl@ntNet /v2/identify response. */
 const PLANTNET_RESPONSE = {
@@ -61,6 +66,19 @@ describe('mapPlantNetResponse', () => {
     expect(mapPlantNetResponse({})).toEqual([]);
     expect(mapPlantNetResponse(null)).toEqual([]);
   });
+
+  it('skips entries lacking a scientific name or numeric score', () => {
+    const candidates = mapPlantNetResponse({
+      results: [
+        { score: 0.5, species: {} }, // no scientificNameWithoutAuthor
+        { species: { scientificNameWithoutAuthor: 'Salvia officinalis' } }, // no score
+        { score: 0.4, species: { scientificNameWithoutAuthor: 'Rosa canina', commonNames: [] } },
+      ],
+    });
+    expect(candidates).toEqual([
+      { scientificName: 'Rosa canina', commonNames: [], score: 0.4, thumbnailUrl: null },
+    ]);
+  });
 });
 
 describe('PlantIdService.identify', () => {
@@ -79,9 +97,7 @@ describe('PlantIdService.identify', () => {
   });
 
   it('POSTs multipart form data with organs=auto and returns candidates', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify(PLANTNET_RESPONSE), { status: 200 }),
-    );
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(PLANTNET_RESPONSE), { status: 200 }));
 
     const candidates = await service.identify(new Blob(['x']));
 
@@ -101,16 +117,12 @@ describe('PlantIdService.identify', () => {
   });
 
   it('throws a quota message on 429', async () => {
-    fetchMock.mockImplementation(() =>
-      Promise.resolve(new Response('slow down', { status: 429 })),
-    );
+    fetchMock.mockImplementation(() => Promise.resolve(new Response('slow down', { status: 429 })));
     await expect(service.identify(new Blob(['x']))).rejects.toMatchObject({
       status: 429,
       message: expect.stringContaining('limit'),
     });
-    await expect(service.identify(new Blob(['x']))).rejects.toBeInstanceOf(
-      PlantIdError,
-    );
+    await expect(service.identify(new Blob(['x']))).rejects.toBeInstanceOf(PlantIdError);
   });
 
   it('throws PlantIdError with status on other HTTP errors', async () => {
@@ -118,5 +130,11 @@ describe('PlantIdService.identify', () => {
     await expect(service.identify(new Blob(['x']))).rejects.toMatchObject({
       status: 500,
     });
+  });
+
+  it('wraps network failures in PlantIdError', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(service.identify(new Blob(['x']))).rejects.toBeInstanceOf(PlantIdError);
+    await expect(service.identify(new Blob(['x']))).rejects.toMatchObject({ status: 0 });
   });
 });
