@@ -126,4 +126,23 @@ describe('PerenualService.searchByScientificName', () => {
       raw: { id: 2, scientific_name: ['Lavandula angustifolia'] },
     });
   });
+
+  it('still returns search-derived data when the details body is malformed', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ data: [{ id: 2, scientific_name: ['Lavandula angustifolia'] }] }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('not json', { status: 200 }));
+
+    const result = await service.searchByScientificName('Lavandula angustifolia');
+    expect(result).toEqual({
+      externalId: '2',
+      heightFtMin: null,
+      heightFtMax: null,
+      raw: { id: 2, scientific_name: ['Lavandula angustifolia'] },
+    });
+  });
 });

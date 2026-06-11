@@ -70,6 +70,34 @@ export function extractHeightFt(details: unknown): {
   return { min: null, max: null };
 }
 
+/** Build the search-derived fallback returned when details are unavailable. */
+function buildFallback(best: PerenualListItem): PerenualSpeciesData {
+  return { externalId: String(best.id), heightFtMin: null, heightFtMax: null, raw: best };
+}
+
+/**
+ * Fetch and parse the Perenual details endpoint for `best`.
+ * Returns `buildFallback(best)` on any details-level failure (bad status,
+ * network error, or malformed JSON body) so only search errors propagate.
+ */
+async function fetchDetails(best: PerenualListItem, key: string): Promise<PerenualSpeciesData> {
+  try {
+    const detailsRes = await fetch(`${BASE_URL}/species/details/${best.id}?key=${key}`);
+    if (!detailsRes.ok) return buildFallback(best);
+
+    const details = await detailsRes.json();
+    const height = extractHeightFt(details);
+    return {
+      externalId: String(best.id),
+      heightFtMin: height.min,
+      heightFtMax: height.max,
+      raw: details,
+    };
+  } catch {
+    return buildFallback(best);
+  }
+}
+
 /**
  * Best-effort lookup against the Perenual plant database. Every public
  * method resolves to null on failure instead of throwing: Perenual
@@ -95,28 +123,12 @@ export class PerenualService {
       const best = pickBestMatch(searchJson.data ?? [], scientificName);
       if (!best) return null;
 
-      // Details call enriches with height; if it fails we still return
-      // the id + search payload so the species records its external link.
-      const detailsRes = await fetch(`${BASE_URL}/species/details/${best.id}?key=${key}`);
-      if (!detailsRes.ok) {
-        return {
-          externalId: String(best.id),
-          heightFtMin: null,
-          heightFtMax: null,
-          raw: best,
-        };
-      }
-
-      const details = await detailsRes.json();
-      const height = extractHeightFt(details);
-      return {
-        externalId: String(best.id),
-        heightFtMin: height.min,
-        heightFtMax: height.max,
-        raw: details,
-      };
+      // Details call enriches with height; if it fails (bad status OR malformed
+      // body) we still return the id + search payload so the species records its
+      // external link.  Only search-level failures reach the outer catch → null.
+      return await fetchDetails(best, key);
     } catch {
-      return null; // network failure → best-effort null
+      return null; // network failure during search → best-effort null
     }
   }
 }
