@@ -17,18 +17,8 @@
     <header class="garden-detail__header">
       <h1>{{ garden()!.name }}</h1>
       <div class="garden-detail__actions">
-        <a
-          [routerLink]="['/app/gardens', id, 'edit']"
-          class="btn btn--secondary"
-        >
-          Edit
-        </a>
-        <button
-          type="button"
-          class="btn btn--danger"
-          [disabled]="deleting()"
-          (click)="onDelete()"
-        >
+        <a [routerLink]="['/app/gardens', id, 'edit']" class="btn btn--secondary"> Edit </a>
+        <button type="button" class="btn btn--danger" [disabled]="deleting()" (click)="onDelete()">
           {{ deleting() ? 'Deleting…' : 'Delete' }}
         </button>
       </div>
@@ -38,13 +28,16 @@
       <p>{{ garden()!.description }}</p>
     }
     <p class="garden-detail__meta">
-      Created {{ garden()!.created_at | date: 'mediumDate' }} ·
-      {{ garden()!.width_ft }} × {{ garden()!.height_ft }} ft
+      Created {{ garden()!.created_at | date: 'mediumDate' }} · {{ garden()!.width_ft }} ×
+      {{ garden()!.height_ft }} ft
     </p>
 
     <!-- Inline error slot, shown for non-fatal errors (e.g. add-plant failure). -->
     @if (errorMessage()) {
       <p class="garden-detail__error">{{ errorMessage() }}</p>
+    }
+    @if (photoWarning()) {
+      <p class="garden-detail__warning" role="alert">{{ photoWarning() }}</p>
     }
 
     <section class="garden-detail__plants">
@@ -56,6 +49,9 @@
         <ul class="garden-detail__plant-list">
           @for (plant of plants(); track plant.id) {
             <li class="garden-detail__plant">
+              @if (photoUrls()[plant.id]; as url) {
+                <img [src]="url" alt="" class="garden-detail__plant-photo" />
+              }
               <span class="garden-detail__plant-name">
                 @if (plant.species; as s) {
                   <span class="garden-detail__plant-number">#{{ s.display_number }}</span>
@@ -64,14 +60,8 @@
                   {{ plant.common_name || '(unnamed)' }}
                 }
               </span>
-              <span class="garden-detail__plant-size">
-                {{ plant.diameter_ft }} ft
-              </span>
-              <button
-                type="button"
-                class="btn btn--danger"
-                (click)="onDeletePlant(plant)"
-              >
+              <span class="garden-detail__plant-size"> {{ plant.diameter_ft }} ft </span>
+              <button type="button" class="btn btn--danger" (click)="onDeletePlant(plant)">
                 Remove
               </button>
             </li>
@@ -79,10 +69,8 @@
         </ul>
       }
 
-      <form
-        (ngSubmit)="onAddPlant()"
-        class="garden-detail__add-plant"
-      >
+      <form (ngSubmit)="onAddPlant()" class="garden-detail__add-plant">
+        <app-identify-plant (confirmed)="onIdentified($event)" />
         <label class="garden-detail__field">
           <span>Name</span>
           <input

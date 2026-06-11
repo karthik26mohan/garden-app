@@ -7,7 +7,9 @@
       color: var(--text-muted);
       text-decoration: none;
 
-      &:hover { color: var(--accent); }
+      &:hover {
+        color: var(--accent);
+      }
     }
   }
 
@@ -33,6 +35,18 @@
 
   &__error {
     color: var(--danger);
+  }
+
+  &__warning {
+    color: var(--text-muted);
+    font-size: 0.9em;
+  }
+
+  &__plant-photo {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: var(--radius);
   }
 
   &__meta {
@@ -70,8 +84,7 @@
   }
 
   &__plant {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
+    display: flex;
     align-items: center;
     gap: 1rem;
     padding: 0.5rem 0.75rem;
@@ -81,6 +94,7 @@
 
   &__plant-name {
     font-weight: 500;
+    flex: 1;
   }
 
   &__plant-number {
@@ -108,6 +122,11 @@
     align-items: end;
     padding-top: 1rem;
     border-top: 1px solid var(--border);
+
+    // The identify widget sits above the name/diameter row, full width.
+    app-identify-plant {
+      grid-column: 1 / -1;
+    }
   }
 
   &__field {

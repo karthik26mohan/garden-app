@@ -1,16 +1,12 @@
-import {
-  Component,
-  inject,
-  OnInit,
-  PLATFORM_ID,
-  signal,
-} from '@angular/core';
+import { Component, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { DatePipe, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Garden, GardenService } from '../garden.service';
 import { Plant, PlantService } from '../plant.service';
 import { Species, SpeciesService } from '../species.service';
+import { PhotoService } from '../photo.service';
+import { IdentificationResult, IdentifyPlant } from '../identify-plant/identify-plant';
 
 /**
  * Garden detail page. Lives at /app/gardens/:id.
@@ -33,7 +29,7 @@ import { Species, SpeciesService } from '../species.service';
  */
 @Component({
   selector: 'app-garden-detail',
-  imports: [RouterLink, DatePipe, FormsModule],
+  imports: [RouterLink, DatePipe, FormsModule, IdentifyPlant],
   templateUrl: './garden-detail.html',
   styleUrl: './garden-detail.scss',
 })
@@ -43,6 +39,7 @@ export class GardenDetail implements OnInit {
   private gardenService = inject(GardenService);
   private plantService = inject(PlantService);
   private speciesService = inject(SpeciesService);
+  private photoService = inject(PhotoService);
   private platformId = inject(PLATFORM_ID);
 
   // The :id segment from the URL. snapshot is fine — Angular remounts this
@@ -58,6 +55,13 @@ export class GardenDetail implements OnInit {
   loading = signal(true);
   deleting = signal(false);
   errorMessage = signal<string | null>(null);
+
+  // plant_id → signed thumbnail URL for primary photos. Best-effort:
+  // empty when photos don't exist or the signed-URL fetch failed.
+  photoUrls = signal<Record<string, string>>({});
+  // Non-fatal photo-save failure message, separate from errorMessage so
+  // a photo hiccup doesn't read like the plant failed.
+  photoWarning = signal<string | null>(null);
 
   // Add-plant form state.
   newPlantName = signal('');
@@ -84,11 +88,11 @@ export class GardenDetail implements OnInit {
       ]);
       this.garden.set(garden);
       this.plants.set(garden?.plants ?? []);
+      // Thumbnails load after the page renders; failures leave the map empty.
+      void this.loadPhotoUrls(garden?.plants?.map((p) => p.id) ?? []);
       this.allSpecies.set(allSpecies);
     } catch (err) {
-      this.errorMessage.set(
-        err instanceof Error ? err.message : 'Failed to load garden.',
-      );
+      this.errorMessage.set(err instanceof Error ? err.message : 'Failed to load garden.');
     } finally {
       this.loading.set(false);
     }
@@ -112,9 +116,7 @@ export class GardenDetail implements OnInit {
       this.router.navigateByUrl('/app/gardens');
     } catch (err) {
       this.deleting.set(false);
-      this.errorMessage.set(
-        err instanceof Error ? err.message : 'Failed to delete garden.',
-      );
+      this.errorMessage.set(err instanceof Error ? err.message : 'Failed to delete garden.');
     }
   }
 
@@ -168,9 +170,57 @@ export class GardenDetail implements OnInit {
       this.newPlantName.set('');
       this.newPlantDiameter.set(1);
     } catch (err) {
-      this.errorMessage.set(
-        err instanceof Error ? err.message : 'Failed to add plant.',
+      this.errorMessage.set(err instanceof Error ? err.message : 'Failed to add plant.');
+    } finally {
+      this.addingPlant.set(false);
+    }
+  }
+
+  private async loadPhotoUrls(plantIds: string[]): Promise<void> {
+    this.photoUrls.set(await this.photoService.getPrimaryPhotoUrls(plantIds));
+  }
+
+  /**
+   * Persist a confirmed photo identification. Mirrors onAddPlant's
+   * two-step species→plant flow, with two additions: the species comes
+   * from the identification (Perenual-enriched), and the photo is
+   * uploaded afterward. Photo failure is NON-fatal by design (spec
+   * section 5): the identified plant is the valuable part.
+   */
+  async onIdentified(result: IdentificationResult): Promise<void> {
+    if (!this.id) return;
+    const garden = this.garden();
+    if (!garden) return;
+
+    this.addingPlant.set(true);
+    this.errorMessage.set(null);
+    this.photoWarning.set(null);
+
+    try {
+      const species = await this.speciesService.ensureByIdentification(result.candidate);
+
+      const created = await this.plantService.create({
+        garden_id: this.id,
+        species_id: species.id,
+        diameter_ft: this.newPlantDiameter(),
+        position_x_ft: garden.width_ft / 2,
+        position_y_ft: garden.height_ft / 2,
+        plantnet_score: result.candidate.score,
+      });
+
+      this.plants.update((list) => [...list, { ...created, species }]);
+      this.allSpecies.update((list) =>
+        list.find((s) => s.id === species.id) ? list : [...list, species],
       );
+
+      try {
+        await this.photoService.uploadPlantPhoto(created.id, result.photo);
+        await this.loadPhotoUrls(this.plants().map((p) => p.id));
+      } catch {
+        this.photoWarning.set('Plant saved, but the photo could not be uploaded.');
+      }
+    } catch (err) {
+      this.errorMessage.set(err instanceof Error ? err.message : 'Failed to add plant.');
     } finally {
       this.addingPlant.set(false);
     }
@@ -188,9 +238,7 @@ export class GardenDetail implements OnInit {
       await this.plantService.delete(plant.id);
       this.plants.update((list) => list.filter((p) => p.id !== plant.id));
     } catch (err) {
-      this.errorMessage.set(
-        err instanceof Error ? err.message : 'Failed to remove plant.',
-      );
+      this.errorMessage.set(err instanceof Error ? err.message : 'Failed to remove plant.');
     }
   }
 }
