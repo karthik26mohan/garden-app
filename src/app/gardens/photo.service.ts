@@ -69,6 +69,13 @@ export class PhotoService {
    * Upload a (already resized) photo for a plant and record it as the
    * plant's primary photo. Throws on failure — the CALLER decides that
    * photo failure is non-fatal (the plant row already exists by then).
+   *
+   * If the `plant_photos` row insert fails after a successful Storage
+   * upload, the just-uploaded object is removed on a best-effort basis so
+   * orphaned blobs do not accumulate.
+   *
+   * Assumes the plant has no primary photo yet; a second call for the same
+   * plant will violate the one-primary-per-plant unique index.
    */
   async uploadPlantPhoto(plantId: string, photo: Blob): Promise<void> {
     const {
@@ -86,7 +93,14 @@ export class PhotoService {
     const { error: insertError } = await this.supabase.client
       .from('plant_photos')
       .insert({ plant_id: plantId, storage_path: path, is_primary: true });
-    if (insertError) throw insertError;
+    if (insertError) {
+      // Best-effort cleanup so a failed insert doesn't strand the blob.
+      await this.supabase.client.storage
+        .from(BUCKET)
+        .remove([path])
+        .catch(() => {});
+      throw insertError;
+    }
   }
 
   /**

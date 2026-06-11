@@ -23,6 +23,7 @@ describe('PhotoService', () => {
 
   // Chainable mock of the slice of SupabaseClient that PhotoService uses.
   const uploadMock = vi.fn();
+  const removeMock = vi.fn();
   const createSignedUrlsMock = vi.fn();
   const insertMock = vi.fn();
   const inMock = vi.fn();
@@ -34,6 +35,7 @@ describe('PhotoService', () => {
       storage: {
         from: vi.fn(() => ({
           upload: uploadMock,
+          remove: removeMock,
           createSignedUrls: createSignedUrlsMock,
         })),
       },
@@ -89,6 +91,19 @@ describe('PhotoService', () => {
         'Not signed in.',
       );
     });
+
+    it('removes the uploaded object when the row insert fails', async () => {
+      uploadMock.mockResolvedValue({ data: { path: 'x' }, error: null });
+      removeMock.mockResolvedValue({ data: null, error: null });
+      insertMock.mockResolvedValue({ error: new Error('insert failed') });
+
+      await expect(service.uploadPlantPhoto('plant-9', new Blob(['img']))).rejects.toThrow(
+        'insert failed',
+      );
+
+      const [uploadedPath] = uploadMock.mock.calls[0];
+      expect(removeMock).toHaveBeenCalledWith([uploadedPath]);
+    });
   });
 
   describe('getPrimaryPhotoUrls', () => {
@@ -119,6 +134,15 @@ describe('PhotoService', () => {
 
     it('returns {} when the photo query errors (thumbnails are best-effort)', async () => {
       inMock.mockResolvedValue({ data: null, error: new Error('rls says no') });
+      await expect(service.getPrimaryPhotoUrls(['p1'])).resolves.toEqual({});
+    });
+
+    it('returns {} when signing the URLs fails', async () => {
+      inMock.mockResolvedValue({
+        data: [{ plant_id: 'p1', storage_path: 'user-1/p1/a.jpg' }],
+        error: null,
+      });
+      createSignedUrlsMock.mockResolvedValue({ data: null, error: new Error('sign failed') });
       await expect(service.getPrimaryPhotoUrls(['p1'])).resolves.toEqual({});
     });
   });
