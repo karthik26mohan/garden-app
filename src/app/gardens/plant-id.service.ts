@@ -105,7 +105,10 @@ export class PlantIdService {
     try {
       json = await res.json();
     } catch {
-      throw new PlantIdError('Could not reach the plant identification service.', 0);
+      throw new PlantIdError(
+        'The plant identification service returned an unexpected response.',
+        0,
+      );
     }
     return mapPlantNetResponse(json);
   }

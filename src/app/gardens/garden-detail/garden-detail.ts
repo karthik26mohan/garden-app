@@ -218,6 +218,10 @@ export class GardenDetail implements OnInit {
         list.find((s) => s.id === species.id) ? list : [...list, species],
       );
 
+      // Reset form for the next plant, same as onAddPlant.
+      this.newPlantName.set('');
+      this.newPlantDiameter.set(1);
+
       try {
         await this.photoService.uploadPlantPhoto(created.id, result.photo);
       } catch {

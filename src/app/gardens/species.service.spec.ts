@@ -32,7 +32,16 @@ describe('SpeciesService.ensureByIdentification', () => {
 
   // One vi.fn() per terminal Supabase call; the chain methods in between
   // are recreated per `from()` call so different queries don't collide.
+  //
+  // Name lookups go through .select().ilike(col, val).limit(1).maybeSingle().
+  // Each maybeSingle() shifts the next result off `findResults` (empty
+  // queue = miss), and `ilikeMock` records which column/value pairs were
+  // queried so tests can assert the search priority order.
+  const findResults: Array<Species | null> = [];
   const maybeSingleMock = vi.fn();
+  const ilikeMock = vi.fn(() => ({
+    limit: vi.fn(() => ({ maybeSingle: maybeSingleMock })),
+  }));
   const updateSingleMock = vi.fn();
   const insertSingleMock = vi.fn();
   const maxMaybeSingleMock = vi.fn();
@@ -45,7 +54,7 @@ describe('SpeciesService.ensureByIdentification', () => {
       },
       from: vi.fn(() => ({
         select: vi.fn(() => ({
-          or: vi.fn(() => ({ maybeSingle: maybeSingleMock })),
+          ilike: ilikeMock,
           order: vi.fn(() => ({
             limit: vi.fn(() => ({ maybeSingle: maxMaybeSingleMock })),
           })),
@@ -68,6 +77,10 @@ describe('SpeciesService.ensureByIdentification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     insertPayloads.length = 0;
+    findResults.length = 0;
+    maybeSingleMock.mockImplementation(() =>
+      Promise.resolve({ data: findResults.shift() ?? null, error: null }),
+    );
     supabaseMock.client.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-1' } },
     });
@@ -81,26 +94,61 @@ describe('SpeciesService.ensureByIdentification', () => {
   });
 
   it('returns an existing species without calling Perenual', async () => {
-    maybeSingleMock.mockResolvedValue({ data: EXISTING, error: null });
+    findResults.push(EXISTING); // first lookup (scientific_name) hits
 
     const result = await service.ensureByIdentification(CANDIDATE);
 
     expect(result).toEqual(EXISTING);
+    expect(ilikeMock).toHaveBeenCalledWith('scientific_name', 'Lavandula angustifolia');
     expect(perenualMock.searchByScientificName).not.toHaveBeenCalled();
   });
 
   it('backfills scientific_name on an existing species that lacks it', async () => {
     const unidentified = { ...EXISTING, scientific_name: null };
     const backfilled = { ...EXISTING };
-    maybeSingleMock.mockResolvedValue({ data: unidentified, error: null });
+    findResults.push(unidentified);
     updateSingleMock.mockResolvedValue({ data: backfilled, error: null });
 
     const result = await service.ensureByIdentification(CANDIDATE);
     expect(result.scientific_name).toBe('Lavandula angustifolia');
   });
 
+  it('finds a species typed by common name when photo-identifying it', async () => {
+    // scientific_name miss, common_name(scientificName) miss, then the
+    // candidate's common name hits a row that predates identification.
+    const typedFirst = { ...EXISTING, common_name: 'English lavender', scientific_name: null };
+    findResults.push(null, null, typedFirst);
+    updateSingleMock.mockResolvedValue({ data: { ...EXISTING }, error: null });
+
+    const result = await service.ensureByIdentification(CANDIDATE);
+
+    expect(ilikeMock.mock.calls).toEqual([
+      ['scientific_name', 'Lavandula angustifolia'],
+      ['common_name', 'Lavandula angustifolia'],
+      ['common_name', 'English lavender'],
+    ]);
+    expect(updateSingleMock).toHaveBeenCalled();
+    expect(result.scientific_name).toBe('Lavandula angustifolia');
+    expect(perenualMock.searchByScientificName).not.toHaveBeenCalled();
+  });
+
+  it('recovers from a unique-violation race by re-reading', async () => {
+    // All three pre-insert lookups miss; the insert collides with the
+    // per-user unique name index; the re-read then finds the winner.
+    findResults.push(null, null, null, EXISTING);
+    maxMaybeSingleMock.mockResolvedValue({ data: { display_number: 7 }, error: null });
+    perenualMock.searchByScientificName.mockResolvedValue(null);
+    insertSingleMock.mockResolvedValue({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+    });
+
+    const result = await service.ensureByIdentification(CANDIDATE);
+
+    expect(result).toEqual(EXISTING);
+  });
+
   it('creates a Perenual-enriched species when no match exists', async () => {
-    maybeSingleMock.mockResolvedValue({ data: null, error: null });
     maxMaybeSingleMock.mockResolvedValue({ data: { display_number: 7 }, error: null });
     perenualMock.searchByScientificName.mockResolvedValue({
       externalId: '2',
@@ -129,7 +177,6 @@ describe('SpeciesService.ensureByIdentification', () => {
   });
 
   it('creates a plantnet-only species when Perenual finds nothing', async () => {
-    maybeSingleMock.mockResolvedValue({ data: null, error: null });
     maxMaybeSingleMock.mockResolvedValue({ data: null, error: null });
     perenualMock.searchByScientificName.mockResolvedValue(null);
     insertSingleMock.mockResolvedValue({
@@ -151,7 +198,6 @@ describe('SpeciesService.ensureByIdentification', () => {
   });
 
   it('falls back to the scientific name when the candidate has no common names', async () => {
-    maybeSingleMock.mockResolvedValue({ data: null, error: null });
     maxMaybeSingleMock.mockResolvedValue({ data: null, error: null });
     perenualMock.searchByScientificName.mockResolvedValue(null);
     insertSingleMock.mockResolvedValue({ data: EXISTING, error: null });

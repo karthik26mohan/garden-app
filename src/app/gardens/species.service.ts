@@ -3,6 +3,8 @@ import { SupabaseService } from '../supabase.service';
 import { PerenualService } from './perenual.service';
 import { PlantIdCandidate } from './plant-id.service';
 
+export type SpeciesExternalSource = 'perenual' | 'plantnet' | 'llm' | 'manual';
+
 /**
  * Shape of a row in the public.species table.
  *
@@ -27,7 +29,7 @@ export interface Species {
   created_at: string;
   updated_at: string;
   /** 'perenual' | 'plantnet' | 'llm' | 'manual' — which system filled the external columns. */
-  external_source: string | null;
+  external_source: SpeciesExternalSource | null;
   external_id: string | null;
   height_ft_min: number | null;
   height_ft_max: number | null;
@@ -65,6 +67,31 @@ export class SpeciesService {
   }
 
   /**
+   * Find one species by exact (case-insensitive) name. Checks the
+   * given columns in priority order with separate single-column
+   * queries: the .ilike() builder safely encodes any value (names
+   * with commas or parens would corrupt a combined .or() filter),
+   * and limit(1) keeps an ambiguous double-match from erroring the
+   * way .or(...).maybeSingle() does.
+   */
+  private async findByName(
+    value: string,
+    columns: ('scientific_name' | 'common_name')[],
+  ): Promise<Species | null> {
+    for (const column of columns) {
+      const { data, error } = await this.supabase.client
+        .from('species')
+        .select('*')
+        .ilike(column, value)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return data as Species;
+    }
+    return null;
+  }
+
+  /**
    * Find an existing species by case-insensitive trimmed match on either
    * common_name or scientific_name, or create a new one with the next
    * sequential display_number if none exists. Returns the species.
@@ -89,18 +116,14 @@ export class SpeciesService {
       throw new Error('Species name cannot be empty.');
     }
 
-    // Step 1: try to find an existing species. Search BOTH common_name
-    // and scientific_name (case-insensitive). Supabase's .or() filter
-    // takes a comma-separated list of conditions; ILIKE with no
-    // wildcards = case-insensitive exact match.
-    const { data: existing, error: selectError } = await this.supabase.client
-      .from('species')
-      .select('*')
-      .or(`common_name.ilike.${normalized},scientific_name.ilike.${normalized}`)
-      .maybeSingle();
-
-    if (selectError) throw selectError;
-    if (existing) return existing as Species;
+    // Step 1: try to find an existing species. Check common_name first,
+    // then scientific_name (case-insensitive; ILIKE with no wildcards =
+    // case-insensitive exact match). Separate single-column queries via
+    // findByName instead of one .or() — same "match either column"
+    // semantics, but injection-safe and deterministic when both columns
+    // could match different rows.
+    const existing = await this.findByName(normalized, ['common_name', 'scientific_name']);
+    if (existing) return existing;
 
     // Step 2: create. Need the current user's id and the next number.
     const {
@@ -140,8 +163,9 @@ export class SpeciesService {
    * (docs/superpowers/specs/2026-06-10-photo-plant-identification-design.md
    * section 4) for the find → enrich → create chain.
    *
-   *   1. FIND: match the scientific name against scientific_name OR
-   *      common_name (case-insensitive). If found, return it —
+   *   1. FIND: match the scientific name against scientific_name then
+   *      common_name, then the candidate's common name against
+   *      common_name (all case-insensitive). If found, return it —
    *      backfilling scientific_name when the row predates
    *      identification.
    *   2. ENRICH: for a new species, ask Perenual for growing data
@@ -156,16 +180,17 @@ export class SpeciesService {
       throw new Error('Candidate has no scientific name.');
     }
 
-    // Step 1: find by scientific name in either name column.
-    const { data: existing, error: selectError } = await this.supabase.client
-      .from('species')
-      .select('*')
-      .or(`scientific_name.ilike.${scientificName},common_name.ilike.${scientificName}`)
-      .maybeSingle();
-    if (selectError) throw selectError;
+    // Step 1: find an existing species. Priority: scientific-name match
+    // (authoritative), then a legacy row whose typed common_name IS the
+    // scientific name, then a row matching the candidate's common name
+    // (the "typed 'Tomato' first, photographed it later" case).
+    const commonName = candidate.commonNames[0]?.trim();
+    const existing =
+      (await this.findByName(scientificName, ['scientific_name', 'common_name'])) ??
+      (commonName ? await this.findByName(commonName, ['common_name']) : null);
 
     if (existing) {
-      const found = existing as Species;
+      const found = existing;
       if (found.scientific_name) return found;
 
       // Backfill: the species existed from a typed name; the photo
@@ -215,7 +240,17 @@ export class SpeciesService {
       })
       .select()
       .single();
-    if (insertError) throw insertError;
+    if (insertError) {
+      // 23505 = unique violation: a concurrent create or a casing-variant
+      // near-miss that the find didn't surface — recover by re-reading.
+      if ((insertError as { code?: string }).code === '23505') {
+        const raced =
+          (await this.findByName(scientificName, ['scientific_name', 'common_name'])) ??
+          (commonName ? await this.findByName(commonName, ['common_name']) : null);
+        if (raced) return raced;
+      }
+      throw insertError;
+    }
     return created as Species;
   }
 }

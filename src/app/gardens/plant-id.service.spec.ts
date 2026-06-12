@@ -132,6 +132,17 @@ describe('PlantIdService.identify', () => {
     });
   });
 
+  it('throws an unexpected-response error when a 200 body is not JSON', async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(new Response('<html>maintenance</html>', { status: 200 })),
+    );
+    await expect(service.identify(new Blob(['x']))).rejects.toBeInstanceOf(PlantIdError);
+    await expect(service.identify(new Blob(['x']))).rejects.toMatchObject({
+      status: 0,
+      message: 'The plant identification service returned an unexpected response.',
+    });
+  });
+
   it('wraps network failures in PlantIdError', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
     await expect(service.identify(new Blob(['x']))).rejects.toBeInstanceOf(PlantIdError);
