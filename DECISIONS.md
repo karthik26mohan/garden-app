@@ -416,6 +416,27 @@
 
 ---
 
+## 15. Client-direct Pl@ntNet calls with domain-whitelisted CORS
+**Date:** 2026-06-10
+**Status:** Accepted
+
+**Context.** The photo-identification feature needs to call Pl@ntNet's API. The key can live in the client bundle (simple, exposed) or behind a server-side proxy (safe, more infrastructure). Pl@ntNet supports browser CORS when the calling origins are registered as "Authorized domains" in the developer account.
+
+**Options considered.**
+- **Client-direct** — browser calls Pl@ntNet; key in environment.ts; origins whitelisted at Pl@ntNet.
+- **Supabase Edge Function proxy** — Deno function holds the key server-side.
+- **SSR Express route** — /api/identify on the existing Angular SSR server.
+
+**Decision.** Client-direct, consistent with the Perenual-key tradeoff already accepted in Entry #14. The Edge Function proxy remains the documented hardening step.
+
+**Why (in my own words).**
+*Hints: same architectural smell already accepted for Perenual — one consistent posture beats two; zero new deploy artifacts; the origin whitelist limits browser-based abuse even though it can't stop curl with a stolen key.*
+
+**Tradeoffs / what we're giving up.**
+*Hints: the key ships in the bundle and could be exfiltrated for someone else's 500/day quota; rotating means a redeploy; the proxy migration touches only PlantIdService/PerenualService internals when it happens.*
+
+---
+
 ## How to use this going forward
 
 Whenever Claude and I make a non-obvious choice, Claude scaffolds the **Context**, **Options**, and **Decision** sections; I rewrite the *italic hints* in my own words into the **Why** and **Tradeoffs** sections. Goal: by Day 10, every entry is in my voice, and I can riff on any of them for 60 seconds in an interview.
