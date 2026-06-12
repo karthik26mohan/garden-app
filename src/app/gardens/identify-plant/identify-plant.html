@@ -6,7 +6,7 @@
         type="file"
         accept="image/*"
         capture="environment"
-        [disabled]="state() === 'identifying'"
+        [disabled]="state() === 'identifying' || disabled()"
         (change)="onFileInputChange($event)"
         class="identify-plant__file-input"
       />
@@ -38,7 +38,12 @@
           </p>
         }
         @for (candidate of candidates(); track candidate.scientificName) {
-          <button type="button" class="identify-plant__candidate" (click)="onPick(candidate)">
+          <button
+            type="button"
+            class="identify-plant__candidate"
+            [disabled]="disabled()"
+            (click)="onPick(candidate)"
+          >
             @if (candidate.thumbnailUrl) {
               <img [src]="candidate.thumbnailUrl" alt="" class="identify-plant__thumb" />
             }

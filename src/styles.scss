@@ -6,14 +6,16 @@
   --text: #1c1917;
   --text-muted: #57534e;
   --border: #d6d3d1;
-  --accent: #15803d;       // emerald-700
+  --accent: #15803d; // emerald-700
   --accent-hover: #166534; // emerald-800
-  --danger: #be123c;       // rose-700
+  --danger: #be123c; // rose-700
+  --warning: #8a6d00;
   --radius: 6px;
   --font-sans: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-html, body {
+html,
+body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
@@ -38,19 +40,25 @@ html, body {
   text-decoration: none;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 
   &--primary {
     background: var(--accent);
     color: white;
-    &:hover { background: var(--accent-hover); }
+    &:hover {
+      background: var(--accent-hover);
+    }
   }
 
   &--secondary {
     background: white;
     color: var(--text);
     border-color: var(--border);
-    &:hover { background: #f5f5f4; }
+    &:hover {
+      background: #f5f5f4;
+    }
   }
 
   &--danger {

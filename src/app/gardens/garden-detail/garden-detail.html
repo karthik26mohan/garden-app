@@ -70,7 +70,7 @@
       }
 
       <form (ngSubmit)="onAddPlant()" class="garden-detail__add-plant">
-        <app-identify-plant (confirmed)="onIdentified($event)" />
+        <app-identify-plant [disabled]="addingPlant()" (confirmed)="onIdentified($event)" />
         <label class="garden-detail__field">
           <span>Name</span>
           <input

@@ -140,6 +140,7 @@ export class GardenDetail implements OnInit {
 
     this.addingPlant.set(true);
     this.errorMessage.set(null);
+    this.photoWarning.set(null);
 
     try {
       // Step 1: resolve the typed name to a species (existing or new).
@@ -177,7 +178,11 @@ export class GardenDetail implements OnInit {
   }
 
   private async loadPhotoUrls(plantIds: string[]): Promise<void> {
-    this.photoUrls.set(await this.photoService.getPrimaryPhotoUrls(plantIds));
+    try {
+      this.photoUrls.set(await this.photoService.getPrimaryPhotoUrls(plantIds));
+    } catch {
+      // Thumbnails are decoration; a failed refresh must never surface.
+    }
   }
 
   /**
@@ -215,10 +220,10 @@ export class GardenDetail implements OnInit {
 
       try {
         await this.photoService.uploadPlantPhoto(created.id, result.photo);
-        await this.loadPhotoUrls(this.plants().map((p) => p.id));
       } catch {
         this.photoWarning.set('Plant saved, but the photo could not be uploaded.');
       }
+      await this.loadPhotoUrls(this.plants().map((p) => p.id));
     } catch (err) {
       this.errorMessage.set(err instanceof Error ? err.message : 'Failed to add plant.');
     } finally {

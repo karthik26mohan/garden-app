@@ -1,4 +1,4 @@
-import { Component, computed, inject, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { PlantIdCandidate, PlantIdService } from '../plant-id.service';
 import { PhotoService } from '../photo.service';
@@ -32,6 +32,8 @@ type IdentifyState = 'idle' | 'identifying' | 'results' | 'error';
 export class IdentifyPlant {
   private plantId = inject(PlantIdService);
   private photoService = inject(PhotoService);
+
+  readonly disabled = input(false);
 
   /** Fires when the user picks a candidate. Parent persists everything. */
   readonly confirmed = output<IdentificationResult>();
@@ -73,7 +75,7 @@ export class IdentifyPlant {
   }
 
   onPick(candidate: PlantIdCandidate): void {
-    if (!this.photo) return;
+    if (this.disabled() || !this.photo) return;
     this.confirmed.emit({ candidate, photo: this.photo });
     this.onDismiss();
   }

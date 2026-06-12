@@ -144,6 +144,21 @@ describe('IdentifyPlant', () => {
     expect(input.value).toBe('');
   });
 
+  it('does not emit when disabled', async () => {
+    plantIdMock.identify.mockResolvedValue(CANDIDATES);
+    const fixture = create();
+    const emitted = vi.fn();
+    fixture.componentInstance.confirmed.subscribe(emitted);
+
+    await fixture.componentInstance.onFileSelected(
+      new File(['x'], 'photo.jpg', { type: 'image/jpeg' }),
+    );
+    fixture.componentRef.setInput('disabled', true);
+    fixture.componentInstance.onPick(CANDIDATES[0]);
+
+    expect(emitted).not.toHaveBeenCalled();
+  });
+
   it('resets to idle when the user dismisses the results', async () => {
     plantIdMock.identify.mockResolvedValue(CANDIDATES);
     const fixture = create();
