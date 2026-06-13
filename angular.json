@@ -67,6 +67,9 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "port": 49971
+          },
           "configurations": {
             "production": {
               "buildTarget": "garden-app:build:production"
