@@ -437,6 +437,28 @@
 
 ---
 
+## 16. Claude (Haiku) for plant dimensions, behind a Supabase Edge Function
+**Date:** 2026-06-13
+**Status:** Accepted
+
+**Context.** Plants need a mature canopy spread to seed their on-map diameter, and a height for color-coding. Perenual's dimension data (Entry #14) turned out to be premium-only — its free tier returns no height or spread — so the data has to come from somewhere else, and the API key for that source must be handled safely.
+
+**Options considered.**
+- **Claude via a Supabase Edge Function** — Haiku 4.5 structured-output call; key in Supabase secrets.
+- **Claude client-direct** — key in the bundle like Pl@ntNet/Perenual.
+- **Pay for Perenual** — unlocks the details endpoint.
+- **Manual entry only** — user types every plant's size.
+
+**Decision.** Claude Haiku 4.5 behind a Supabase Edge Function, as the LLM fallback Entry #14 anticipated; the function is the first server-side component and the pattern phase 3 (AI recommendations) will reuse.
+
+**Why (in my own words).**
+*Hints: an Anthropic key can be abused across every model, not just a capped quota — unlike the Pl@ntNet/Perenual keys, it doesn't belong in the bundle; the edge function is the "real backend" the earlier entries kept deferring; cost is fractions of a cent per species, cached forever; doing it now pre-builds phase 3's Claude integration.*
+
+**Tradeoffs / what we're giving up.**
+*Hints: a new deploy artifact + local-dev step (functions serve, secrets); LLM dimensions are best-effort estimates, not a curated catalog (tracked via dimensions_source = 'llm'); one more external dependency in the add-plant flow, though it degrades to null dims on failure.*
+
+---
+
 ## How to use this going forward
 
 Whenever Claude and I make a non-obvious choice, Claude scaffolds the **Context**, **Options**, and **Decision** sections; I rewrite the *italic hints* in my own words into the **Why** and **Tradeoffs** sections. Goal: by Day 10, every entry is in my voice, and I can riff on any of them for 60 seconds in an interview.

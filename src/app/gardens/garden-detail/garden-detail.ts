@@ -207,7 +207,10 @@ export class GardenDetail implements OnInit {
       const created = await this.plantService.create({
         garden_id: this.id,
         species_id: species.id,
-        diameter_ft: this.newPlantDiameter(),
+        // Seed the on-map diameter from the species' mature canopy spread
+        // (the circle represents footprint/spacing); fall back to the manual
+        // field when spread is unknown.
+        diameter_ft: species.spread_ft_max ?? this.newPlantDiameter(),
         position_x_ft: garden.width_ft / 2,
         position_y_ft: garden.height_ft / 2,
         plantnet_score: result.candidate.score,
