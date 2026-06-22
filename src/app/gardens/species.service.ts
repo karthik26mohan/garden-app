@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { SupabaseService } from '../supabase.service';
 import { PerenualService } from './perenual.service';
 import { PlantIdCandidate } from './plant-id.service';
+import { PlantDimensionService } from './plant-dimension.service';
 
 export type SpeciesExternalSource = 'perenual' | 'plantnet' | 'llm' | 'manual';
 
@@ -34,6 +35,11 @@ export interface Species {
   height_ft_min: number | null;
   height_ft_max: number | null;
   external_data: unknown | null;
+  /** Mature canopy spread (top-down width), feet — seeds a plant's on-map diameter. */
+  spread_ft_min: number | null;
+  spread_ft_max: number | null;
+  /** 'perenual' | 'llm' | null — where the dimension numbers came from (vs external_source = catalog match). */
+  dimensions_source: 'perenual' | 'llm' | null;
 }
 
 /**
@@ -51,6 +57,7 @@ export interface Species {
 export class SpeciesService {
   private supabase = inject(SupabaseService);
   private perenual = inject(PerenualService);
+  private dimensions = inject(PlantDimensionService);
 
   /**
    * Return every species the current user has, sorted by display_number
@@ -205,8 +212,28 @@ export class SpeciesService {
       return updated as Species;
     }
 
-    // Step 2: enrich via Perenual (null = lookup failed or no match).
+    // Step 2: enrich. Perenual gives a catalog match (external_id); its free
+    // tier returns no dimensions, so a Claude lookup (via the plant-dimensions
+    // edge function) fills height + spread. Both are best-effort — null on any
+    // failure — so the species is always created.
     const perenualData = await this.perenual.searchByScientificName(scientificName);
+    const llmDims = await this.dimensions.lookup(scientificName, commonName);
+
+    // Merge: Perenual height wins when present (a future paid tier would then
+    // take precedence); spread only ever comes from the LLM today. Track which
+    // source actually supplied a dimension number.
+    const heightFtMin = perenualData?.heightFtMin ?? llmDims.heightFtMin;
+    const heightFtMax = perenualData?.heightFtMax ?? llmDims.heightFtMax;
+    const spreadFtMin = llmDims.spreadFtMin;
+    const spreadFtMax = llmDims.spreadFtMax;
+    const usedPerenualDims = perenualData?.heightFtMin != null || perenualData?.heightFtMax != null;
+    const usedLlmDims =
+      heightFtMin != null || heightFtMax != null || spreadFtMin != null || spreadFtMax != null;
+    const dimensionsSource: 'perenual' | 'llm' | null = usedPerenualDims
+      ? 'perenual'
+      : usedLlmDims
+        ? 'llm'
+        : null;
 
     // Step 3: create, same next-number pattern as ensureByName.
     const {
@@ -233,10 +260,13 @@ export class SpeciesService {
         external_source: perenualData ? 'perenual' : 'plantnet',
         ...(perenualData && {
           external_id: perenualData.externalId,
-          height_ft_min: perenualData.heightFtMin,
-          height_ft_max: perenualData.heightFtMax,
           external_data: perenualData.raw,
         }),
+        ...(heightFtMin != null && { height_ft_min: heightFtMin }),
+        ...(heightFtMax != null && { height_ft_max: heightFtMax }),
+        ...(spreadFtMin != null && { spread_ft_min: spreadFtMin }),
+        ...(spreadFtMax != null && { spread_ft_max: spreadFtMax }),
+        ...(dimensionsSource && { dimensions_source: dimensionsSource }),
       })
       .select()
       .single();

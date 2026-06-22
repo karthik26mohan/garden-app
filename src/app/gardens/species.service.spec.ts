@@ -4,6 +4,7 @@ import { Species, SpeciesService } from './species.service';
 import { SupabaseService } from '../supabase.service';
 import { PerenualService } from './perenual.service';
 import { PlantIdCandidate } from './plant-id.service';
+import { PlantDimensionService } from './plant-dimension.service';
 
 const CANDIDATE: PlantIdCandidate = {
   scientificName: 'Lavandula angustifolia',
@@ -25,6 +26,9 @@ const EXISTING: Species = {
   height_ft_min: null,
   height_ft_max: null,
   external_data: null,
+  spread_ft_min: null,
+  spread_ft_max: null,
+  dimensions_source: null,
 };
 
 describe('SpeciesService.ensureByIdentification', () => {
@@ -73,6 +77,7 @@ describe('SpeciesService.ensureByIdentification', () => {
   };
 
   const perenualMock = { searchByScientificName: vi.fn() };
+  const dimensionMock = { lookup: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -81,6 +86,14 @@ describe('SpeciesService.ensureByIdentification', () => {
     maybeSingleMock.mockImplementation(() =>
       Promise.resolve({ data: findResults.shift() ?? null, error: null }),
     );
+    // Default: dimension lookup returns nothing, so existing tests that don't
+    // care about dimensions are unaffected.
+    dimensionMock.lookup.mockResolvedValue({
+      heightFtMin: null,
+      heightFtMax: null,
+      spreadFtMin: null,
+      spreadFtMax: null,
+    });
     supabaseMock.client.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-1' } },
     });
@@ -88,6 +101,7 @@ describe('SpeciesService.ensureByIdentification', () => {
       providers: [
         { provide: SupabaseService, useValue: supabaseMock },
         { provide: PerenualService, useValue: perenualMock },
+        { provide: PlantDimensionService, useValue: dimensionMock },
       ],
     });
     service = TestBed.inject(SpeciesService);
@@ -173,6 +187,7 @@ describe('SpeciesService.ensureByIdentification', () => {
       height_ft_min: 1,
       height_ft_max: 3,
       external_data: { id: 2 },
+      dimensions_source: 'perenual',
     });
   });
 
@@ -207,5 +222,81 @@ describe('SpeciesService.ensureByIdentification', () => {
     expect(insertPayloads[0]).toMatchObject({
       common_name: 'Lavandula angustifolia',
     });
+  });
+
+  it('fills height + spread from the LLM when Perenual has no dimensions', async () => {
+    maxMaybeSingleMock.mockResolvedValue({ data: null, error: null });
+    perenualMock.searchByScientificName.mockResolvedValue({
+      externalId: '2',
+      heightFtMin: null,
+      heightFtMax: null,
+      raw: { id: 2 },
+    });
+    dimensionMock.lookup.mockResolvedValue({
+      heightFtMin: 1,
+      heightFtMax: 3,
+      spreadFtMin: 1,
+      spreadFtMax: 2,
+    });
+    insertSingleMock.mockResolvedValue({ data: { ...EXISTING, id: 'sp-new' }, error: null });
+
+    await service.ensureByIdentification(CANDIDATE);
+
+    expect(dimensionMock.lookup).toHaveBeenCalledWith('Lavandula angustifolia', 'English lavender');
+    expect(insertPayloads[0]).toMatchObject({
+      height_ft_min: 1,
+      height_ft_max: 3,
+      spread_ft_min: 1,
+      spread_ft_max: 2,
+      dimensions_source: 'llm',
+    });
+  });
+
+  it('prefers Perenual height over the LLM but takes spread from the LLM', async () => {
+    maxMaybeSingleMock.mockResolvedValue({ data: null, error: null });
+    perenualMock.searchByScientificName.mockResolvedValue({
+      externalId: '2',
+      heightFtMin: 2,
+      heightFtMax: 5,
+      raw: { id: 2 },
+    });
+    dimensionMock.lookup.mockResolvedValue({
+      heightFtMin: 1,
+      heightFtMax: 3,
+      spreadFtMin: 1,
+      spreadFtMax: 2,
+    });
+    insertSingleMock.mockResolvedValue({ data: { ...EXISTING, id: 'sp-new' }, error: null });
+
+    await service.ensureByIdentification(CANDIDATE);
+
+    expect(insertPayloads[0]).toMatchObject({
+      height_ft_min: 2,
+      height_ft_max: 5,
+      spread_ft_min: 1,
+      spread_ft_max: 2,
+      dimensions_source: 'perenual',
+    });
+  });
+
+  it('leaves dimensions_source null when neither source has dimensions', async () => {
+    maxMaybeSingleMock.mockResolvedValue({ data: null, error: null });
+    perenualMock.searchByScientificName.mockResolvedValue(null);
+    // dimensionMock default returns all-nulls.
+    insertSingleMock.mockResolvedValue({ data: { ...EXISTING, id: 'sp-new' }, error: null });
+
+    await service.ensureByIdentification(CANDIDATE);
+
+    const payload = insertPayloads[0] as Record<string, unknown>;
+    expect(payload['dimensions_source']).toBeUndefined();
+    expect(payload['spread_ft_min']).toBeUndefined();
+  });
+
+  it('does not call the dimension lookup when an existing species is found', async () => {
+    findResults.push(EXISTING); // first lookup hits
+
+    await service.ensureByIdentification(CANDIDATE);
+
+    expect(dimensionMock.lookup).not.toHaveBeenCalled();
   });
 });
