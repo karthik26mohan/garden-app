@@ -283,4 +283,42 @@ export class SpeciesService {
     }
     return created as Species;
   }
+
+  /**
+   * Best-effort height/spread backfill for a species that's missing
+   * dimensions — used by the "Fill in missing heights" action on the
+   * yard map, which needs height data to color-code plants. Mirrors the
+   * dimension-merge logic in ensureByIdentification, but for an existing
+   * row instead of a brand-new one.
+   *
+   * Never throws: returns the species unchanged if it has no
+   * scientific_name to look up, the lookup finds nothing, or the update
+   * fails.
+   */
+  async backfillDimensions(species: Species): Promise<Species> {
+    if (!species.scientific_name) return species;
+
+    const dims = await this.dimensions.lookup(species.scientific_name, species.common_name);
+    const hasAnyDimension =
+      dims.heightFtMin != null ||
+      dims.heightFtMax != null ||
+      dims.spreadFtMin != null ||
+      dims.spreadFtMax != null;
+    if (!hasAnyDimension) return species;
+
+    const { data, error } = await this.supabase.client
+      .from('species')
+      .update({
+        ...(dims.heightFtMin != null && { height_ft_min: dims.heightFtMin }),
+        ...(dims.heightFtMax != null && { height_ft_max: dims.heightFtMax }),
+        ...(dims.spreadFtMin != null && { spread_ft_min: dims.spreadFtMin }),
+        ...(dims.spreadFtMax != null && { spread_ft_max: dims.spreadFtMax }),
+        dimensions_source: 'llm',
+      })
+      .eq('id', species.id)
+      .select()
+      .single();
+    if (error) return species;
+    return data as Species;
+  }
 }

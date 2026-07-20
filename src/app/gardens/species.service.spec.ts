@@ -300,3 +300,109 @@ describe('SpeciesService.ensureByIdentification', () => {
     expect(dimensionMock.lookup).not.toHaveBeenCalled();
   });
 });
+
+describe('SpeciesService.backfillDimensions', () => {
+  let service: SpeciesService;
+
+  const NO_HEIGHT: Species = {
+    id: 'sp-2',
+    user_id: 'user-1',
+    common_name: 'Oak sapling',
+    scientific_name: 'Quercus rubra',
+    display_number: 4,
+    created_at: '2026-06-01T00:00:00Z',
+    updated_at: '2026-06-01T00:00:00Z',
+    external_source: 'plantnet',
+    external_id: null,
+    height_ft_min: null,
+    height_ft_max: null,
+    external_data: null,
+    spread_ft_min: null,
+    spread_ft_max: null,
+    dimensions_source: null,
+  };
+
+  const updateSingleMock = vi.fn();
+  const eqMock = vi.fn(() => ({ select: vi.fn(() => ({ single: updateSingleMock })) }));
+  const updateMock = vi.fn(() => ({ eq: eqMock }));
+  const dimensionMock = { lookup: vi.fn() };
+
+  const supabaseMock = {
+    client: {
+      from: vi.fn(() => ({ update: updateMock })),
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: SupabaseService, useValue: supabaseMock },
+        { provide: PerenualService, useValue: { searchByScientificName: vi.fn() } },
+        { provide: PlantDimensionService, useValue: dimensionMock },
+      ],
+    });
+    service = TestBed.inject(SpeciesService);
+  });
+
+  it('looks up dimensions and persists them when found', async () => {
+    dimensionMock.lookup.mockResolvedValue({
+      heightFtMin: 20,
+      heightFtMax: 60,
+      spreadFtMin: 15,
+      spreadFtMax: 40,
+    });
+    const updated = { ...NO_HEIGHT, height_ft_min: 20, height_ft_max: 60 };
+    updateSingleMock.mockResolvedValue({ data: updated, error: null });
+
+    const result = await service.backfillDimensions(NO_HEIGHT);
+
+    expect(dimensionMock.lookup).toHaveBeenCalledWith('Quercus rubra', 'Oak sapling');
+    expect(updateMock).toHaveBeenCalledWith({
+      height_ft_min: 20,
+      height_ft_max: 60,
+      spread_ft_min: 15,
+      spread_ft_max: 40,
+      dimensions_source: 'llm',
+    });
+    expect(eqMock).toHaveBeenCalledWith('id', 'sp-2');
+    expect(result).toEqual(updated);
+  });
+
+  it('returns the species unchanged when the lookup finds nothing', async () => {
+    dimensionMock.lookup.mockResolvedValue({
+      heightFtMin: null,
+      heightFtMax: null,
+      spreadFtMin: null,
+      spreadFtMax: null,
+    });
+
+    const result = await service.backfillDimensions(NO_HEIGHT);
+
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(result).toEqual(NO_HEIGHT);
+  });
+
+  it('returns the species unchanged without calling the lookup when it has no scientific name', async () => {
+    const unidentified = { ...NO_HEIGHT, scientific_name: null };
+
+    const result = await service.backfillDimensions(unidentified);
+
+    expect(dimensionMock.lookup).not.toHaveBeenCalled();
+    expect(result).toEqual(unidentified);
+  });
+
+  it('returns the species unchanged when the update fails', async () => {
+    dimensionMock.lookup.mockResolvedValue({
+      heightFtMin: 20,
+      heightFtMax: 60,
+      spreadFtMin: null,
+      spreadFtMax: null,
+    });
+    updateSingleMock.mockResolvedValue({ data: null, error: new Error('boom') });
+
+    const result = await service.backfillDimensions(NO_HEIGHT);
+
+    expect(result).toEqual(NO_HEIGHT);
+  });
+});
