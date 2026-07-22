@@ -100,8 +100,10 @@
   }
 
   &__plant {
-    fill: rgba(101, 163, 13, 0.45);
-    stroke: #4d7c0f;
+    // fill/stroke color now come from getPlantColor via inline style
+    // ([style.fill]/[style.stroke] in yard-map.html) — only opacity and
+    // stroke-width stay here as drag-state modifiers.
+    fill-opacity: 0.45;
     stroke-width: 0.05;
     cursor: grab;
 
@@ -110,15 +112,15 @@
     }
 
     &--dragging {
-      fill: rgba(101, 163, 13, 0.7);
+      fill-opacity: 0.7;
       stroke-width: 0.1;
     }
   }
 
   &__plant-number {
-    // Dark olive on lime — high contrast for the species number.
+    // fill color comes from getPlantColor via inline style, so the
+    // number stays readable against every shade.
     // pointer-events: none so clicks pass through to the circle for drag.
-    fill: #365314;
     font-weight: 700;
     pointer-events: none;
     user-select: none;
@@ -131,10 +133,18 @@
     stroke: #8b6f47;
     stroke-width: 0.1;
 
-    &--nw { cursor: nw-resize; }
-    &--ne { cursor: ne-resize; }
-    &--sw { cursor: sw-resize; }
-    &--se { cursor: se-resize; }
+    &--nw {
+      cursor: nw-resize;
+    }
+    &--ne {
+      cursor: ne-resize;
+    }
+    &--sw {
+      cursor: sw-resize;
+    }
+    &--se {
+      cursor: se-resize;
+    }
   }
 
   &__draw-preview {

@@ -64,31 +64,11 @@
       second pattern is heavier and tiles every 10 ft for orientation.
     -->
     <defs>
-      <pattern
-        id="yard-grid"
-        width="1"
-        height="1"
-        patternUnits="userSpaceOnUse"
-      >
-        <path
-          d="M 1 0 L 0 0 L 0 1"
-          fill="none"
-          stroke="#e7e5e4"
-          stroke-width="0.05"
-        />
+      <pattern id="yard-grid" width="1" height="1" patternUnits="userSpaceOnUse">
+        <path d="M 1 0 L 0 0 L 0 1" fill="none" stroke="#e7e5e4" stroke-width="0.05" />
       </pattern>
-      <pattern
-        id="yard-grid-major"
-        width="10"
-        height="10"
-        patternUnits="userSpaceOnUse"
-      >
-        <path
-          d="M 10 0 L 0 0 L 0 10"
-          fill="none"
-          stroke="#a8a29e"
-          stroke-width="0.08"
-        />
+      <pattern id="yard-grid-major" width="10" height="10" patternUnits="userSpaceOnUse">
+        <path d="M 10 0 L 0 0 L 0 10" fill="none" stroke="#a8a29e" stroke-width="0.08" />
       </pattern>
     </defs>
 
@@ -178,14 +158,17 @@
           garden.plants is optional (only present when eager-loaded by
           GardenService.list); ?? [] handles the un-loaded case safely.
         -->
-        @for (plant of (garden.plants ?? []); track plant.id) {
+        @for (plant of garden.plants ?? []; track plant.id) {
           @let isDraggingPlant = draggingPlantId() === plant.id;
           @let plantX = isDraggingPlant ? dragPlantX() : plant.position_x_ft;
           @let plantY = isDraggingPlant ? dragPlantY() : plant.position_y_ft;
+          @let plantColor = getPlantColor(plant.species);
           <circle
             [attr.cx]="plantX"
             [attr.cy]="plantY"
             [attr.r]="plant.diameter_ft / 2"
+            [style.fill]="plantColor.fill"
+            [style.stroke]="plantColor.stroke"
             class="yard-map__plant"
             [class.yard-map__plant--dragging]="isDraggingPlant"
             (pointerdown)="onPlantPointerDown($event, plant)"
@@ -197,7 +180,8 @@
             Species display_number inside the circle. Font size scales
             with the plant's diameter so the number stays proportional
             at any zoom level. Falls back to "?" for legacy plants that
-            don't yet have a species_id assigned.
+            don't yet have a species_id assigned. Text color comes from
+            getPlantColor so it stays readable against every shade.
           -->
           <text
             [attr.x]="plantX"
@@ -205,6 +189,7 @@
             text-anchor="middle"
             dominant-baseline="middle"
             [attr.font-size]="plant.diameter_ft * 0.5"
+            [style.fill]="plantColor.textColor"
             class="yard-map__plant-number"
           >
             {{ plant.species?.display_number ?? '?' }}
@@ -267,8 +252,7 @@
     }
   </svg>
   <figcaption class="yard-map__legend">
-    1 square = 1 ft · right-click a garden to edit · Shift+drag on the grid
-    to add a new garden
+    1 square = 1 ft · right-click a garden to edit · Shift+drag on the grid to add a new garden
   </figcaption>
 
   <!--
@@ -278,16 +262,8 @@
     viewport, not the figure.
   -->
   @if (contextMenu(); as menu) {
-    <div
-      class="yard-map__context-menu"
-      [style.left.px]="menu.x"
-      [style.top.px]="menu.y"
-    >
-      <button
-        type="button"
-        class="yard-map__context-menu-item"
-        (click)="onContextMenuEdit($event)"
-      >
+    <div class="yard-map__context-menu" [style.left.px]="menu.x" [style.top.px]="menu.y">
+      <button type="button" class="yard-map__context-menu-item" (click)="onContextMenuEdit($event)">
         Edit garden
       </button>
     </div>

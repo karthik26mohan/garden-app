@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { Garden } from '../garden.service';
 import { Plant } from '../plant.service';
+import { getPlantColor } from '../plant-color.util';
 
 /** Which corner the user grabbed when starting a resize. */
 type Corner = 'nw' | 'ne' | 'sw' | 'se';
@@ -64,6 +65,11 @@ type Corner = 'nw' | 'ne' | 'sw' | 'se';
 export class YardMap {
   gardens = input.required<Garden[]>();
 
+  // Exposed for the template — @for blocks call methods/fields on `this`,
+  // not bare imported functions, so this is how getPlantColor becomes
+  // callable from yard-map.html.
+  protected getPlantColor = getPlantColor;
+
   /**
    * Fires when a drag or resize ends and the garden's bounding box has
    * changed. Unified across both interactions so the parent only wires
@@ -113,8 +119,7 @@ export class YardMap {
 
   // Computed string passed to the SVG's [attr.viewBox] binding.
   protected viewBox = computed(
-    () =>
-      `${this.viewX()} ${this.viewY()} ${this.viewWidth()} ${this.viewHeight()}`,
+    () => `${this.viewX()} ${this.viewY()} ${this.viewWidth()} ${this.viewHeight()}`,
   );
 
   // viewChild reference to the <svg> element — needed for getBoundingClientRect.
@@ -372,10 +377,8 @@ export class YardMap {
     for (const g of gardens) {
       if (g.position_x_ft < minX) minX = g.position_x_ft;
       if (g.position_y_ft < minY) minY = g.position_y_ft;
-      if (g.position_x_ft + g.width_ft > maxX)
-        maxX = g.position_x_ft + g.width_ft;
-      if (g.position_y_ft + g.height_ft > maxY)
-        maxY = g.position_y_ft + g.height_ft;
+      if (g.position_x_ft + g.width_ft > maxX) maxX = g.position_x_ft + g.width_ft;
+      if (g.position_y_ft + g.height_ft > maxY) maxY = g.position_y_ft + g.height_ft;
     }
 
     minX -= padding;
@@ -458,10 +461,7 @@ export class YardMap {
     this.draggingId.set(null);
 
     // Only emit if the position actually changed.
-    if (
-      garden &&
-      (finalX !== this.dragStartGardenX || finalY !== this.dragStartGardenY)
-    ) {
+    if (garden && (finalX !== this.dragStartGardenX || finalY !== this.dragStartGardenY)) {
       this.boxChange.emit({
         gardenId: id,
         positionX: finalX,
@@ -571,10 +571,8 @@ export class YardMap {
   onResizeMove(event: PointerEvent): void {
     if (!this.resizingId()) return;
 
-    const deltaSvgX =
-      (event.clientX - this.resizeStartPointerX) * this.resizeScale;
-    const deltaSvgY =
-      (event.clientY - this.resizeStartPointerY) * this.resizeScale;
+    const deltaSvgX = (event.clientX - this.resizeStartPointerX) * this.resizeScale;
+    const deltaSvgY = (event.clientY - this.resizeStartPointerY) * this.resizeScale;
 
     const box = this.computeResizedBox(
       this.resizeCorner,
