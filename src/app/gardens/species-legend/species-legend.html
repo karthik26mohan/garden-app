@@ -21,6 +21,7 @@
     <ul class="species-legend__list">
       @for (s of sortedSpecies(); track s.id) {
         <li class="species-legend__item">
+          <span class="species-legend__swatch" [style.background]="plantColor(s).fill"></span>
           <span class="species-legend__number">{{ s.display_number }}</span>
           <span class="species-legend__name">{{ s.common_name }}</span>
           @if (s.scientific_name) {

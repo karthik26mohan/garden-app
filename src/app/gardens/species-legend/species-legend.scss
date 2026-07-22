@@ -53,11 +53,11 @@
   }
 
   &__item {
-    // Two columns: a fixed-width number badge + flexible content.
-    // scientific_name (if present) wraps to a second row in column 2.
+    // Three columns: swatch + number badge + flexible content.
+    // scientific_name (if present) wraps to a second row in column 3.
     display: grid;
-    grid-template-columns: 1.75rem 1fr;
-    column-gap: 0.6rem;
+    grid-template-columns: 0.6rem 1.75rem 1fr;
+    column-gap: 0.5rem;
     padding: 0.4rem 0;
     border-bottom: 1px solid var(--border);
 
@@ -66,8 +66,17 @@
     }
   }
 
-  &__number {
+  &__swatch {
     grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+  }
+
+  &__number {
+    grid-column: 2;
     grid-row: 1 / span 2;
     align-self: center;
     text-align: center;
@@ -80,14 +89,14 @@
   }
 
   &__name {
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 1;
     font-size: 0.9rem;
     color: var(--text);
   }
 
   &__scientific {
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 2;
     font-size: 0.75rem;
     color: var(--text-muted);

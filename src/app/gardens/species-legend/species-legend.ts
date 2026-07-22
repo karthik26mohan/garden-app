@@ -1,5 +1,6 @@
 import { Component, computed, input, signal } from '@angular/core';
 import { Species } from '../species.service';
+import { getPlantColor } from '../plant-color.util';
 
 /**
  * Legend that maps each species's display_number to its name.
@@ -21,6 +22,9 @@ import { Species } from '../species.service';
 })
 export class SpeciesLegend {
   species = input.required<Species[]>();
+
+  // Exposed for the template's swatch binding.
+  protected plantColor = getPlantColor;
 
   // Sort state. 'number' = ascending display_number (matches insertion
   // order since numbers are assigned sequentially). 'name' = alphabetical
