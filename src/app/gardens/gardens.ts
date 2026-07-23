@@ -11,7 +11,7 @@ import { Router, RouterLink } from '@angular/router';
 import { SupabaseService } from '../supabase.service';
 import { Garden, GardenService } from './garden.service';
 import { PlantService } from './plant.service';
-import { Species } from './species.service';
+import { Species, SpeciesService } from './species.service';
 import { YardMap } from './yard-map/yard-map';
 import { SpeciesLegend } from './species-legend/species-legend';
 
@@ -36,6 +36,7 @@ export class Gardens implements OnInit {
   private supabase = inject(SupabaseService);
   private gardenService = inject(GardenService);
   private plantService = inject(PlantService);
+  private speciesService = inject(SpeciesService);
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
 
@@ -45,6 +46,10 @@ export class Gardens implements OnInit {
   gardens = signal<Garden[]>([]);
   loading = signal(true);
   errorMessage = signal<string | null>(null);
+
+  // True while onBackfillHeights is looking up dimensions for one or
+  // more species. Disables the button and shows a loading label.
+  backfillingHeights = signal(false);
 
   /**
    * Unique species currently present in any of the user's gardens.
@@ -63,6 +68,18 @@ export class Gardens implements OnInit {
     }
     return Array.from(seen.values());
   });
+
+  /**
+   * Species that have enough identity (a scientific name) to look up
+   * dimensions for, but no height data yet — these render as neutral
+   * gray on the map. Drives the "Fill in missing heights" button's
+   * visibility and its work list.
+   */
+  speciesNeedingHeight = computed<Species[]>(() =>
+    this.visibleSpecies().filter(
+      (s) => s.scientific_name != null && s.height_ft_min == null && s.height_ft_max == null,
+    ),
+  );
 
   async ngOnInit(): Promise<void> {
     if (!isPlatformBrowser(this.platformId)) {
@@ -206,6 +223,39 @@ export class Gardens implements OnInit {
       this.errorMessage.set(
         err instanceof Error ? err.message : 'Failed to save plant position.',
       );
+    }
+  }
+
+  /**
+   * Look up mature height (+ spread) for every visible species that has
+   * a scientific name but no height data yet, then splice each result
+   * back into the embedded species on every matching plant across every
+   * garden — the yard map's colors update reactively because they're
+   * derived from `gardens()`. Best-effort per species: a failed lookup
+   * just leaves that species unchanged (still gray) without blocking
+   * the others.
+   */
+  async onBackfillHeights(): Promise<void> {
+    const targets = this.speciesNeedingHeight();
+    if (targets.length === 0) return;
+
+    this.backfillingHeights.set(true);
+    try {
+      const updated = await Promise.all(
+        targets.map((s) => this.speciesService.backfillDimensions(s)),
+      );
+      const byId = new Map(updated.map((s) => [s.id, s]));
+
+      this.gardens.update((list) =>
+        list.map((g) => ({
+          ...g,
+          plants: g.plants?.map((p) =>
+            p.species && byId.has(p.species.id) ? { ...p, species: byId.get(p.species.id) } : p,
+          ),
+        })),
+      );
+    } finally {
+      this.backfillingHeights.set(false);
     }
   }
 }

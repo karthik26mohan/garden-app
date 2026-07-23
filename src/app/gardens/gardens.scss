@@ -26,6 +26,11 @@
     flex-wrap: wrap;
   }
 
+  &__backfill-btn {
+    display: block;
+    margin: 0 0 2rem;
+  }
+
   &__status {
     color: var(--text-muted);
     font-size: 0.875rem;

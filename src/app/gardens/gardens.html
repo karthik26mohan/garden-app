@@ -28,6 +28,17 @@
 
   <app-species-legend [species]="visibleSpecies()" />
 
+  @if (speciesNeedingHeight().length > 0) {
+    <button
+      type="button"
+      class="btn btn--secondary gardens__backfill-btn"
+      [disabled]="backfillingHeights()"
+      (click)="onBackfillHeights()"
+    >
+      {{ backfillingHeights() ? 'Looking up heights…' : 'Fill in missing heights' }}
+    </button>
+  }
+
   @if (loading()) {
     <p class="gardens__status">Loading…</p>
   } @else if (errorMessage()) {
